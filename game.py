@@ -1,5 +1,6 @@
 import pygame
 import sys
+import data
 
 pygame.init()
 
@@ -7,6 +8,7 @@ WIDTH, HEIGHT = 800, 600
 FPS = 30
 WHITE = (255, 255, 255)
 
+data.start_data_thread()
 
 sleeping_bear = pygame.image.load("images/sleeping_bear.png")
 back_sleeping = pygame.image.load("images/back_sleeping.png")
@@ -27,7 +29,6 @@ pygame.display.set_caption("Bear Animation")
 
 clock = pygame.time.Clock()
 
-
 def draw_zzzz(surface, x, y, alpha=255):
 
     font = pygame.font.Font(None, 36)
@@ -35,21 +36,15 @@ def draw_zzzz(surface, x, y, alpha=255):
     text.set_alpha(alpha)
     surface.blit(text, (x, y))
 
- 
 
-def sleeping_animation():
+def sleeping_animation(frame):
 
-    for _ in range(90):
-        screen.fill(WHITE)
+    screen.fill(WHITE)
+    y_offset = 5 * (pygame.time.get_ticks() % 1000) / 1000
+    screen.blit(sleeping_bear, (200, 250))
+    screen.blit(back_sleeping, (300, 215 + int(y_offset)))
+    draw_zzzz(screen, 200, 250 - frame // 4, max(0, 255 - frame * 2))
 
-        y_offset = 5 * (pygame.time.get_ticks() % 1000) / 1000 
-        screen.blit(sleeping_bear, (200, 250))
-        screen.blit(back_sleeping, (300, 215 + int(y_offset)))
-        draw_zzzz(screen, 200, 250 - _ // 4, max(0, 255 - _ * 2))
-        pygame.display.flip()
-        clock.tick(FPS)
-
- 
 
 def waking_animation():
 
@@ -91,8 +86,6 @@ def angry_transition():
         pygame.display.flip()
         clock.tick(FPS)
 
- 
-
     for _ in range(50):
 
         screen.fill(WHITE)
@@ -106,13 +99,24 @@ def angry_transition():
 def main():
 
     running = True
+    frame_count = 0
 
     while running:
         screen.fill(WHITE)
+        frame_count += 1
 
-        sleeping_animation()
-        waking_animation()
-        angry_transition()
+        sleeping_animation(frame_count)
+
+        vals = data.vals
+
+        if vals:
+            slight = [value for value in vals.values() if abs(value[-1]) >= 2 and abs(value[-1]) < 4]
+            big = [value for value in vals.values() if abs(value[-1]) >= 4]
+            if big:
+                angry_transition()
+                exit()
+            elif slight: 
+                waking_animation()
 
         for event in pygame.event.get():
 
