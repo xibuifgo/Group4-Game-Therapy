@@ -8,12 +8,12 @@ FPS = 30
 WHITE = (255, 255, 255)
 
 
-sleeping_bear = pygame.image.load("sleeping_bear.png")
-back_sleeping = pygame.image.load("back_sleeping.png")
-waking_bear = pygame.image.load("waking_bear.png")
-left_ear = pygame.image.load("left_ear.png")
-right_ear = pygame.image.load("right_ear.png")
-angry_bear = pygame.image.load("angry_bear.png")
+sleeping_bear = pygame.image.load("images/sleeping_bear.png")
+back_sleeping = pygame.image.load("images/back_sleeping.png")
+waking_bear = pygame.image.load("images/waking_bear.png")
+left_ear = pygame.image.load("images/left_ear.png")
+right_ear = pygame.image.load("images/right_ear.png")
+angry_bear = pygame.image.load("images/angry_bear.png")
 
 sleeping_bear = pygame.transform.scale(sleeping_bear, (400, 300))
 back_sleeping = pygame.transform.scale(back_sleeping, (210, 100))
