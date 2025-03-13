@@ -1,6 +1,6 @@
 from machine import SoftI2C, I2C
 from machine import Pin
-from machine import sleep
+import time
 import network
 import espnow
 import mpu6050
@@ -24,8 +24,15 @@ i2c = SoftI2C(scl=Pin(22), sda=Pin(21))
 # creating instance of mpu class to read the acceleration data via the i2c serial bus
 mpu = mpu6050.accel(i2c)
 
+# getting values to normalize values
+norms = mpu.get_norm_vals()
+
 while True:
-    vals = mpu.get_values()
-    json_data = ujson.dumps(vals)
-    esp.send(peer, json_data.encode())
-    print(f"Sending: {json_data}")
+    try:
+        vals = mpu.normalize(norms)
+        json_data = ujson.dumps(vals)
+        esp.send(peer, json_data.encode())
+        print(f"{json_data}")
+    except Exception as e:
+        pass
+    time.sleep(0.1)
