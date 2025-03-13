@@ -27,8 +27,9 @@ class GameScreen(Screen):
         self.counter += 1 
         vals = data.vals
 
-        slight = [value for value in vals.values() if abs(value[-1]) >= 2 and abs(value[-1]) < 4]
-        big = [value for value in vals.values() if abs(value[-1]) >= 4]
+        slight = [value[-1] for value in vals.values() if abs(value[-1]) >= 1 and abs(value[-1]) < 2]
+        big = [value[-1] for value in vals.values() if abs(value[-1]) >= 2]
+        print(big)
         if big:
             self.angry_transition()
             exit()
@@ -37,7 +38,7 @@ class GameScreen(Screen):
 
     def sleeping_animation(self):
 
-        for _ in range(90):
+        for _ in range(20):
 
             self.window.fill(WHITE)
             y_offset = 5 * (pygame.time.get_ticks() % 1000) / 1000 
@@ -64,7 +65,7 @@ class GameScreen(Screen):
         ear_twitch_offset = 0
         PUPIL_COLOR = (20, 20, 20)
 
-        for i in range(40): 
+        for i in range(20): 
 
             self.window.fill(WHITE)
             self.window.blit(self.waking_bear, (200, 250))
@@ -98,7 +99,7 @@ class GameScreen(Screen):
             pygame.display.flip()
             self.clock.tick(FPS)
 
-        for _ in range(50):
+        for _ in range(20):
 
             self.window.fill(WHITE)
             offset_x = 5 if _ % 2 == 0 else -5 
