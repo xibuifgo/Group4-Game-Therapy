@@ -39,7 +39,7 @@ def draw_zzzz(surface, x, y, alpha=255):
 
 def sleeping_animation():
 
-    for _ in range(90):
+    for _ in range(20):
 
         screen.fill(WHITE)
         y_offset = 5 * (pygame.time.get_ticks() % 1000) / 1000 
@@ -58,7 +58,7 @@ def waking_animation():
     ear_twitch_offset = 0
     PUPIL_COLOR = (20, 20, 20)
 
-    for i in range(40): 
+    for i in range(20): 
 
         screen.fill(WHITE)
         screen.blit(waking_bear, (200, 250))
@@ -92,7 +92,7 @@ def angry_transition():
         pygame.display.flip()
         clock.tick(FPS)
 
-    for _ in range(50):
+    for _ in range(20):
 
         screen.fill(WHITE)
         offset_x = 5 if _ % 2 == 0 else -5 
@@ -105,7 +105,6 @@ def angry_transition():
 def main():
 
     running = True
-    frame_count = 0
 
     while running:
         screen.fill(WHITE)
@@ -114,8 +113,9 @@ def main():
 
         vals = data.vals
 
-        slight = [value for value in vals.values() if abs(value[-1]) >= 2 and abs(value[-1]) < 4]
-        big = [value for value in vals.values() if abs(value[-1]) >= 4]
+        slight = [value[-1] for value in vals.values() if abs(value[-1]) >= 1 and abs(value[-1]) < 2]
+        big = [value[-1] for value in vals.values() if abs(value[-1]) >= 2]
+        print(big)
         if big:
             angry_transition()
             exit()
