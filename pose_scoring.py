@@ -1,12 +1,9 @@
-# pose_scoring.py
 import math
 import numpy as np
 import data_temp
 
 class PoseScorer:
     def __init__(self):
-        # Define the pose parameters
-        # Each pose has expected values and tolerances for each sensor
         self.poses = [
             # Pose 1 - Arms stretched forward (example)
             {
@@ -55,27 +52,22 @@ class PoseScorer:
             }
         ]
         
-        # History of readings to smooth out noise
         self.history_length = 5
         self.readings_history = []
     
     def get_normalized_sensor_data(self):
         """Get the latest sensor readings and normalize them"""
-        # Get latest sensor data
         ax = data_temp.vals["AcX"][-1] if data_temp.vals["AcX"] else 0
         ay = data_temp.vals["AcY"][-1] if data_temp.vals["AcY"] else 0
         az = data_temp.vals["AcZ"][-1] if data_temp.vals["AcZ"] else 0
         gx = data_temp.vals["GyX"][-1] if data_temp.vals["GyX"] else 0
         gy = data_temp.vals["GyY"][-1] if data_temp.vals["GyY"] else 0
         gz = data_temp.vals["GyZ"][-1] if data_temp.vals["GyZ"] else 0
-        
-        # Normalize accelerometer data (assume values are between -1 and 1)
-        # In a real scenario, you'd calibrate these values
+
         ax = max(-1, min(1, ax / 16384))
         ay = max(-1, min(1, ay / 16384))
         az = max(-1, min(1, az / 16384))
-        
-        # Normalize gyroscope data
+
         gx = max(-1, min(1, gx / 131))
         gy = max(-1, min(1, gy / 131))
         gz = max(-1, min(1, gz / 131))
@@ -95,7 +87,6 @@ class PoseScorer:
         if len(self.readings_history) > self.history_length:
             self.readings_history.pop(0)
             
-        # Calculate the average of each sensor value
         smoothed = {}
         for key in new_reading:
             values = [reading[key] for reading in self.readings_history]
@@ -108,32 +99,24 @@ class PoseScorer:
         if pose_index < 0 or pose_index >= len(self.poses):
             return 0
             
-        # Get current sensor readings
         current = self.get_normalized_sensor_data()
         
-        # Apply smoothing
         smoothed = self.smooth_readings(current)
         
-        # Get expected pose values
         expected_pose = self.poses[pose_index]
         
-        # Calculate score for each sensor
         sensor_scores = {}
         for key in expected_pose:
             expected = expected_pose[key]["expected"]
             tolerance = expected_pose[key]["tolerance"]
             
-            # Calculate how far the current value is from expected
             difference = abs(smoothed[key] - expected)
             
-            # Convert to a 0-100 score where 0 means beyond tolerance and 100 means perfect match
             if difference > tolerance:
                 sensor_scores[key] = 0
             else:
-                # Linear score based on how close to the expected value
                 sensor_scores[key] = 100 * (1 - difference / tolerance)
         
-        # Calculate the average score across all sensors
         total_score = sum(sensor_scores.values()) / len(sensor_scores)
         
         return total_score

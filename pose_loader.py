@@ -1,4 +1,3 @@
-# pose_loader.py
 import pygame
 import os
 
@@ -11,17 +10,14 @@ def load_poses(directory="poses"):
     """
     poses = []
     
-    # Check if directory exists
     if not os.path.exists(directory):
         print(f"Warning: Pose directory '{directory}' not found. Using placeholder poses.")
         return create_placeholder_poses()
     
-    # Try to load images from directory
     valid_extensions = ['.png', '.jpg', '.jpeg', '.bmp']
     files = os.listdir(directory)
     
     for file in files:
-        # Check if file is an image
         ext = os.path.splitext(file)[1].lower()
         if ext in valid_extensions:
             try:
@@ -53,7 +49,6 @@ def create_placeholder_poses():
         pose_surface = pygame.Surface((400, 400))
         pose_surface.fill(color)
         
-        # Add some visual elements to make it look more like a pose
         pygame.draw.circle(pose_surface, (255, 255, 255), (200, 100), 50)  # Head
         pygame.draw.rect(pose_surface, (255, 255, 255), (150, 150, 100, 150))  # Body
         pygame.draw.rect(pose_surface, (255, 255, 255), (150, 300, 40, 100))  # Left leg

@@ -8,7 +8,6 @@ class CalibrationScreen(Screen):
         self.clock = clock
         
     def display(self):
-        # Basic display for now
         font = pygame.font.SysFont('Arial', 40)
         text = font.render("Calibration Screen", True, (0, 0, 0))
         self.window.blit(text, (self.window.get_width()//2 - text.get_width()//2, 
