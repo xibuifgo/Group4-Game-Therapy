@@ -1,45 +1,74 @@
 import pygame
-
-from game import WHITE, FPS, data, Screen
-
+import data_temp
+from base_screen import Screen
+from constants import WHITE, window, clock, FPS
 
 class GameScreen(Screen):
     def __init__(self, window, clock):
         self.window = window
         self.clock = clock
-        sleeping_bear = pygame.image.load("images/sleeping_bear.png")
-        back_sleeping = pygame.image.load("images/back_sleeping.png")
-        waking_bear = pygame.image.load("images/waking_bear.png")
-        left_ear = pygame.image.load("images/left_ear.png")
-        right_ear = pygame.image.load("images/right_ear.png")
-        angry_bear = pygame.image.load("images/angry_bear.png")
+        
+        # Try loading images, but provide defaults if they don't exist
+        try:
+            sleeping_bear = pygame.image.load("images/sleeping_bear.png")
+            back_sleeping = pygame.image.load("images/back_sleeping.png")
+            waking_bear = pygame.image.load("images/waking_bear.png")
+            left_ear = pygame.image.load("images/left_ear.png")
+            right_ear = pygame.image.load("images/right_ear.png")
+            angry_bear = pygame.image.load("images/angry_bear.png")
+        except pygame.error:
+            # Create placeholder images if the actual images aren't found
+            sleeping_bear = self.create_placeholder_image((200, 200), (150, 150, 200))
+            back_sleeping = self.create_placeholder_image((100, 50), (100, 100, 150))
+            waking_bear = self.create_placeholder_image((200, 200), (200, 150, 150))
+            left_ear = self.create_placeholder_image((70, 70), (100, 100, 100))
+            right_ear = self.create_placeholder_image((80, 80), (100, 100, 100))
+            angry_bear = self.create_placeholder_image((200, 200), (250, 100, 100))
 
         self.counter = 1
-        self.sleeping_bear = pygame.transform.scale(sleeping_bear, (window.WIDTH / 2, window.HEIGHT / 2))
+        
+        # Get window dimensions correctly
+        window_width, window_height = window.get_size()
+        
+        self.sleeping_bear = pygame.transform.scale(sleeping_bear, (window_width // 2, window_height // 2))
         self.back_sleeping = pygame.transform.scale(back_sleeping, (210, 100))
-        self.waking_bear = pygame.transform.scale(waking_bear, (window.WIDTH / 2, window.HEIGHT / 2))
+        self.waking_bear = pygame.transform.scale(waking_bear, (window_width // 2, window_height // 2))
         self.left_ear = pygame.transform.scale(left_ear, (70, 70))
         self.right_ear = pygame.transform.scale(right_ear, (80, 80))
-        self.angry_bear = pygame.transform.scale(angry_bear(window.WIDTH / 2, window.HEIGHT / 2))
+        self.angry_bear = pygame.transform.scale(angry_bear, (window_width // 2, window_height // 2))
+
+    def create_placeholder_image(self, size, color):
+        """Create a placeholder image when actual images aren't available"""
+        surface = pygame.Surface(size)
+        surface.fill(color)
+        return surface
 
     def display(self): 
         self.sleeping_animation()
         self.counter += 1 
-        vals = data.vals
+        vals = data_temp.vals
 
-        slight = [value[-1] for value in vals.values() if abs(value[-1]) >= 1 and abs(value[-1]) < 2]
-        big = [value[-1] for value in vals.values() if abs(value[-1]) >= 2]
-        print(big)
+        # Get data from the last values in each sensor
+        slight = []
+        big = []
+        for key, value_list in vals.items():
+            if value_list:  # Make sure the list is not empty
+                last_value = value_list[-1]
+                if abs(last_value) >= 1 and abs(last_value) < 2:
+                    slight.append(last_value)
+                elif abs(last_value) >= 2:
+                    big.append(last_value)
+        
+        print("Big movements:", big)
         if big:
             self.angry_transition()
-            exit()
+            # Don't exit the program, just handle the animation
+            # exit()  # This would quit the program which we don't want
         elif slight: 
             self.waking_animation()
 
     def sleeping_animation(self):
-
-        for _ in range(20):
-
+        for _ in range(5):  # Reduced from 20 to 5 to speed up testing
             self.window.fill(WHITE)
             y_offset = 5 * (pygame.time.get_ticks() % 1000) / 1000 
             self.window.blit(self.sleeping_bear, (200, 250))
@@ -51,22 +80,17 @@ class GameScreen(Screen):
             self.clock.tick(FPS)
 
     def draw_zzzz(self, surface, x, y, alpha=255):
-
         font = pygame.font.Font(None, 36)
         text = font.render("ZZZZ", True, (200, 200, 200))
         text.set_alpha(alpha)
         surface.blit(text, (x, y))
 
-
-
     def waking_animation(self):
-
         pupil_x = 320 
         ear_twitch_offset = 0
         PUPIL_COLOR = (20, 20, 20)
 
-        for i in range(20): 
-
+        for i in range(5):  # Reduced from 20 to 5 to speed up testing
             self.window.fill(WHITE)
             self.window.blit(self.waking_bear, (200, 250))
 
@@ -80,10 +104,8 @@ class GameScreen(Screen):
 
             pygame.display.flip()
             self.clock.tick(FPS)
-
     
     def angry_transition(self):
-
         for i in range(5): 
             self.window.fill(WHITE)
             alpha = int((i / 20) * 255) 
@@ -99,8 +121,7 @@ class GameScreen(Screen):
             pygame.display.flip()
             self.clock.tick(FPS)
 
-        for _ in range(20):
-
+        for _ in range(5):  # Reduced from 20 to 5 to speed up testing
             self.window.fill(WHITE)
             offset_x = 5 if _ % 2 == 0 else -5 
             self.window.blit(self.angry_bear, (200 + offset_x, 250))
