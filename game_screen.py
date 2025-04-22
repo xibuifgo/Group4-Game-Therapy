@@ -8,7 +8,6 @@ class GameScreen(Screen):
         self.window = window
         self.clock = clock
         
-        # Try loading images, but provide defaults if they don't exist
         try:
             sleeping_bear = pygame.image.load("images/sleeping_bear.png")
             back_sleeping = pygame.image.load("images/back_sleeping.png")
@@ -17,7 +16,6 @@ class GameScreen(Screen):
             right_ear = pygame.image.load("images/right_ear.png")
             angry_bear = pygame.image.load("images/angry_bear.png")
         except pygame.error:
-            # Create placeholder images if the actual images aren't found
             sleeping_bear = self.create_placeholder_image((200, 200), (150, 150, 200))
             back_sleeping = self.create_placeholder_image((100, 50), (100, 100, 150))
             waking_bear = self.create_placeholder_image((200, 200), (200, 150, 150))
@@ -27,7 +25,6 @@ class GameScreen(Screen):
 
         self.counter = 1
         
-        # Get window dimensions correctly
         window_width, window_height = window.get_size()
         
         self.sleeping_bear = pygame.transform.scale(sleeping_bear, (window_width // 2, window_height // 2))
@@ -48,11 +45,10 @@ class GameScreen(Screen):
         self.counter += 1 
         vals = data_temp.vals
 
-        # Get data from the last values in each sensor
         slight = []
         big = []
         for key, value_list in vals.items():
-            if value_list:  # Make sure the list is not empty
+            if value_list:
                 last_value = value_list[-1]
                 if abs(last_value) >= 1 and abs(last_value) < 2:
                     slight.append(last_value)
@@ -62,13 +58,11 @@ class GameScreen(Screen):
         print("Big movements:", big)
         if big:
             self.angry_transition()
-            # Don't exit the program, just handle the animation
-            # exit()  # This would quit the program which we don't want
         elif slight: 
             self.waking_animation()
 
     def sleeping_animation(self):
-        for _ in range(5):  # Reduced from 20 to 5 to speed up testing
+        for _ in range(5):
             self.window.fill(WHITE)
             y_offset = 5 * (pygame.time.get_ticks() % 1000) / 1000 
             self.window.blit(self.sleeping_bear, (200, 250))
@@ -90,7 +84,7 @@ class GameScreen(Screen):
         ear_twitch_offset = 0
         PUPIL_COLOR = (20, 20, 20)
 
-        for i in range(5):  # Reduced from 20 to 5 to speed up testing
+        for i in range(5):
             self.window.fill(WHITE)
             self.window.blit(self.waking_bear, (200, 250))
 
@@ -121,7 +115,7 @@ class GameScreen(Screen):
             pygame.display.flip()
             self.clock.tick(FPS)
 
-        for _ in range(5):  # Reduced from 20 to 5 to speed up testing
+        for _ in range(5):
             self.window.fill(WHITE)
             offset_x = 5 if _ % 2 == 0 else -5 
             self.window.blit(self.angry_bear, (200 + offset_x, 250))

@@ -8,7 +8,6 @@ from game_over_screen import GameOverScreen
 from game_screen import GameScreen
 from abc import ABC, abstractmethod
 
-# Forces all screens to have a function called display
 class Screen():
     @abstractmethod
     def display(self):
