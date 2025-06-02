@@ -36,7 +36,9 @@ def main():
                 running = False
 
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_0:
+                if event.key == pygame.K_F11:
+                    pygame.display.toggle_fullscreen()
+                elif event.key == pygame.K_0:
                     screen_status = 0  # Login screen
                 elif event.key == pygame.K_1:
                     screen_status = 1  # Menu screen

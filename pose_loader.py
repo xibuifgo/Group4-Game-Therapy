@@ -1,38 +1,47 @@
 import pygame
 import os
 
+from pose_templates import PoseTemplates
+
 def load_poses(directory="poses"):
     """
-    Load pose images from the specified directory.
-    Returns a list of pygame Surface objects representing poses.
-    
-    If no poses are found, returns placeholder colored rectangles.
+    Load pose images along with names and descriptions from PoseTemplates.
+    Returns a list of (image_surface, name, description).
     """
     poses = []
-    
+    template = PoseTemplates()
+
     if not os.path.exists(directory):
         print(f"Warning: Pose directory '{directory}' not found. Using placeholder poses.")
-        return create_placeholder_poses()
-    
-    valid_extensions = ['.png', '.jpg', '.jpeg', '.bmp']
-    files = os.listdir(directory)
-    
-    for file in files:
-        ext = os.path.splitext(file)[1].lower()
-        if ext in valid_extensions:
-            try:
-                image_path = os.path.join(directory, file)
-                image = pygame.image.load(image_path)
-                poses.append(image)
-                print(f"Loaded pose image: {file}")
-            except pygame.error as e:
-                print(f"Failed to load pose image {file}: {e}")
-    
-    if not poses:
-        print("No valid pose images found. Using placeholder poses.")
-        return create_placeholder_poses()
-    
+        images = create_placeholder_poses()
+    else:
+        valid_extensions = ['.png', '.jpg', '.jpeg', '.bmp']
+        files = sorted(os.listdir(directory))
+        images = []
+        for file in files:
+            ext = os.path.splitext(file)[1].lower()
+            if ext in valid_extensions:
+                try:
+                    image_path = os.path.join(directory, file)
+                    image = pygame.image.load(image_path)
+                    images.append(image)
+                    print(f"Loaded pose image: {file}")
+                except pygame.error as e:
+                    print(f"Failed to load pose image {file}: {e}")
+
+        if not images:
+            print("No valid pose images found. Using placeholder poses.")
+            images = create_placeholder_poses()
+
+    for i, img in enumerate(images):
+        pose_info = template.get_pose(i)
+        if pose_info:
+            poses.append((img, pose_info["name"], pose_info["description"]))
+        else:
+            poses.append((img, f"Pose {i+1}", "No description"))
+
     return poses
+
 
 def create_placeholder_poses():
     """Create placeholder poses as colored rectangles."""
