@@ -1,9 +1,8 @@
 import pygame
 import os
-
 from pose_templates import PoseTemplates
 
-def load_poses(directory="poses"):
+def load_poses(directory="assets/poses"):
     """
     Load pose images along with names and descriptions from PoseTemplates.
     Returns a list of (image_surface, name, description).
@@ -16,7 +15,16 @@ def load_poses(directory="poses"):
         images = create_placeholder_poses()
     else:
         valid_extensions = ['.png', '.jpg', '.jpeg', '.bmp']
-        files = sorted(os.listdir(directory))
+        desired_order = [
+            "normal_standing_stance.png",
+            "star_pose.png",
+            "tandem_stance.png",
+            "heel_rise.png",
+            "flamingo_left.png",
+            "flamingo_right.png"
+        ]
+        files = [f for f in desired_order if os.path.exists(os.path.join(directory, f))]
+
         images = []
         for file in files:
             ext = os.path.splitext(file)[1].lower()
@@ -34,7 +42,7 @@ def load_poses(directory="poses"):
             images = create_placeholder_poses()
 
     for i, img in enumerate(images):
-        pose_info = template.get_pose(i)
+        pose_info = template.get_pose_description(i)
         if pose_info:
             poses.append((img, pose_info["name"], pose_info["description"]))
         else:
@@ -42,29 +50,23 @@ def load_poses(directory="poses"):
 
     return poses
 
-
 def create_placeholder_poses():
     """Create placeholder poses as colored rectangles."""
     poses = []
     colors = [
-        (255, 0, 0),    # Red
-        (0, 255, 0),    # Green
-        (0, 0, 255),    # Blue
-        (255, 255, 0),  # Yellow
-        (255, 0, 255)   # Magenta
+        (255, 0, 0), (0, 255, 0), (0, 0, 255),
+        (255, 255, 0), (255, 0, 255)
     ]
-    
+
     for color in colors:
         pose_surface = pygame.Surface((400, 400))
         pose_surface.fill(color)
-        
-        pygame.draw.circle(pose_surface, (255, 255, 255), (200, 100), 50)  # Head
-        pygame.draw.rect(pose_surface, (255, 255, 255), (150, 150, 100, 150))  # Body
-        pygame.draw.rect(pose_surface, (255, 255, 255), (150, 300, 40, 100))  # Left leg
-        pygame.draw.rect(pose_surface, (255, 255, 255), (210, 300, 40, 100))  # Right leg
-        pygame.draw.rect(pose_surface, (255, 255, 255), (100, 150, 50, 100))  # Left arm
-        pygame.draw.rect(pose_surface, (255, 255, 255), (250, 150, 50, 100))  # Right arm
-        
+        pygame.draw.circle(pose_surface, (255, 255, 255), (200, 100), 50)
+        pygame.draw.rect(pose_surface, (255, 255, 255), (150, 150, 100, 150))
+        pygame.draw.rect(pose_surface, (255, 255, 255), (150, 300, 40, 100))
+        pygame.draw.rect(pose_surface, (255, 255, 255), (210, 300, 40, 100))
+        pygame.draw.rect(pose_surface, (255, 255, 255), (100, 150, 50, 100))
+        pygame.draw.rect(pose_surface, (255, 255, 255), (250, 150, 50, 100))
         poses.append(pose_surface)
-    
+
     return poses
