@@ -1,6 +1,6 @@
 import math
 import numpy as np
-import data_temp
+import data_real
 from pose_templates import PoseTemplates
 
 class PoseScorer:
@@ -50,12 +50,12 @@ class PoseScorer:
         self.readings_history = []
 
     def get_normalized_sensor_data(self):
-        ax = data_temp.vals["AcX"][-1] if data_temp.vals["AcX"] else 0
-        ay = data_temp.vals["AcY"][-1] if data_temp.vals["AcY"] else 0
-        az = data_temp.vals["AcZ"][-1] if data_temp.vals["AcZ"] else 0
-        gx = data_temp.vals["GyX"][-1] if data_temp.vals["GyX"] else 0
-        gy = data_temp.vals["GyY"][-1] if data_temp.vals["GyY"] else 0
-        gz = data_temp.vals["GyZ"][-1] if data_temp.vals["GyZ"] else 0
+        ax = data_real.vals["AcX"][-1] if data_real.vals["AcX"] else 0
+        ay = data_real.vals["AcY"][-1] if data_real.vals["AcY"] else 0
+        az = data_real.vals["AcZ"][-1] if data_real.vals["AcZ"] else 0
+        gx = data_real.vals["GyX"][-1] if data_real.vals["GyX"] else 0
+        gy = data_real.vals["GyY"][-1] if data_real.vals["GyY"] else 0
+        gz = data_real.vals["GyZ"][-1] if data_real.vals["GyZ"] else 0
 
         ax = max(-1, min(1, ax / 16384))
         ay = max(-1, min(1, ay / 16384))

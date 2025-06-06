@@ -76,7 +76,7 @@ class PoseDetector:
             left_heel = landmarks_array[self.mp_pose.PoseLandmark.LEFT_HEEL.value]
             right_heel = landmarks_array[self.mp_pose.PoseLandmark.RIGHT_HEEL.value]            
             left_toe = landmarks_array[self.mp_pose.PoseLandmark.LEFT_FOOT_INDEX.value]
-            right_toe = landmarks_array[self.mp_pose.PoseLandmark.RIGHT_FOOT_INDEX.value]           
+            right_toe = landmarks_array[self.mp_pose.PoseLandmark.RIGHT_FOOT_INDEX.value]  
 
             # Calculate shoulder angles (arm positioning)
             angles['left_shoulder'] = self.calculate_angle(left_hip, left_shoulder, left_elbow)
@@ -111,6 +111,9 @@ class PoseDetector:
             angles["left_toe_y"] = left_toe[1]
             angles["right_toe_y"] = right_toe[1]
 
+            # Add ankle Z positions for side-facing tandem support
+            angles["left_ankle_z"] = left_ankle[2]
+            angles["right_ankle_z"] = right_ankle[2]     
 
         except (IndexError, ValueError) as e:
             print(f"Error calculating angles: {e}")

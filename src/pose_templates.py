@@ -7,10 +7,10 @@ class PoseTemplates:
         self.templates = [
             {"name": "Normal standing stance", "description": "Stand with your feet together and body upright", "angles": {"torso_lean": 0}, "tolerances": {"default": 20, "torso_lean": 15}, "special_check": "normal_standing_stance"},
             {"name": "Star Pose", "description": "Stand with arms and legs spread wide like a star", "angles": {"left_shoulder": 90, "right_shoulder": 90, "torso_lean": 0}, "tolerances": {"default": 45, "torso_lean": 15}, "special_check": "star_pose"},
-            {"name": "Tandem Stance", "description": "Stand with one foot directly in front of the other", "angles": {"torso_lean": 0, "left_leg": 180, "right_leg": 180}, "tolerances": {"default": 25, "torso_lean": 10}, "special_check": "tandem_stance"},
+            {"name": "Tandem Stance", "description": "Facing forwards, stand with one foot directly in front of the other", "angles": {"torso_lean": 0, "left_leg": 180, "right_leg": 180}, "tolerances": {"default": 25, "torso_lean": 10}, "special_check": "tandem_stance"},
             {"name": "Heel Raise", "description": "Stand on your toes, lifting your heels", "angles": {"torso_lean": 0, "left_leg": 180, "right_leg": 180}, "tolerances": {"default": 25, "torso_lean": 15}, "special_check": "heel_raise"},
-            {"name": "Flamingo Left", "description": "Stand on your right leg, lift your left leg up", "angles": {"torso_lean": 0}, "tolerances": {"default": 30, "torso_lean": 20}, "special_check": "flamingo_left"},
-            {"name": "Flamingo Right", "description": "Stand on your left leg, lift your right leg up", "angles": {"torso_lean": 0}, "tolerances": {"default": 30, "torso_lean": 20}, "special_check": "flamingo_right"}
+            {"name": "Flamingo Left", "description": "Stand on your right leg, lift your left leg up", "angles": {"torso_lean": 0}, "tolerances": {"default": 30, "torso_lean": 15}, "special_check": "flamingo_left"},
+            {"name": "Flamingo Right", "description": "Stand on your left leg, lift your right leg up", "angles": {"torso_lean": 0}, "tolerances": {"default": 30, "torso_lean": 15}, "special_check": "flamingo_right"}
         ]
 
     def calculate_pose_similarity(self, angles, pose_index):
@@ -44,13 +44,15 @@ class PoseTemplates:
             right_score = self._score_angle(angles.get("right_shoulder", 0), angles_dict["right_shoulder"], tolerances.get("right_shoulder", tolerances["default"]))
             return (left_score + right_score) / 2
         elif check == "tandem_stance":
-            foot_aligned = abs(angles.get("left_ankle_x", 0) - angles.get("right_ankle_x", 0)) < 0.05
+            x_aligned = abs(angles.get("left_ankle_x", 0) - angles.get("right_ankle_x", 0)) < 0.05
+            z_aligned = abs(angles.get("left_ankle_z", 0) - angles.get("right_ankle_z", 0)) < 0.03
+            foot_aligned = x_aligned or z_aligned
             leg_score = (self._score_angle(angles.get("left_leg", 0), angles_dict["left_leg"], tolerances.get("left_leg", tolerances["default"])) + self._score_angle(angles.get("right_leg", 0), angles_dict["right_leg"], tolerances.get("right_leg", tolerances["default"]))) / 2
             torso_score = self._score_angle(angles.get("torso_lean", 0), angles_dict["torso_lean"], tolerances.get("torso_lean", tolerances["default"]))
             align_score = 100 if foot_aligned else 0
             return (leg_score + torso_score + align_score) / 3
         elif check == "heel_raise":
-            lifted = (angles.get("left_heel_y", 1) > angles.get("left_toe_y", 1) - 0.02 and angles.get("right_heel_y", 1) > angles.get("right_toe_y", 1) - 0.02)
+            lifted = (angles.get("left_heel_y", 1) > angles.get("left_toe_y", 1) - 0.02 and angles.get("right_heel_y", 1) > angles.get("right_toe_y", 1) + 0.02)
             leg_score = (self._score_angle(angles.get("left_leg", 0), angles_dict["left_leg"], tolerances.get("left_leg", tolerances["default"])) + self._score_angle(angles.get("right_leg", 0), angles_dict["right_leg"], tolerances.get("right_leg", tolerances["default"]))) / 2
             torso_score = self._score_angle(angles.get("torso_lean", 0), angles_dict["torso_lean"], tolerances.get("torso_lean", tolerances["default"]))
             lift_score = 100 if lifted else 0
@@ -132,8 +134,12 @@ class PoseTemplates:
                 feedback.append("Keep torso upright")
             else:
                 feedback.append(":) Good posture!")                   
-            if not (angles.get("left_heel_y", 1) > angles.get("left_toe_y", 1) - 0.02 and angles.get("right_heel_y", 1) > angles.get("right_toe_y", 1) - 0.02):
+            if not (
+                angles.get("left_heel_y", 1) < angles.get("left_toe_y", 1) - 0.02 and
+                angles.get("right_heel_y", 1) < angles.get("right_toe_y", 1) - 0.02
+            ):
                 feedback.append("Lift your heels higher")
+
             else:
                 feedback.append(":) Your heels are lifted high")
 

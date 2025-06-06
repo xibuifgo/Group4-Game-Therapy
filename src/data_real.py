@@ -13,7 +13,7 @@ vals = {"AcX": [0],
             "GyZ": [0]}
 
 def connect():
-    ser = serial.Serial('COM3', 115200, timeout=0.1)
+    ser = serial.Serial('COM4', 115200, timeout=0.1)
 
     return ser
 

@@ -17,11 +17,11 @@ def load_poses(directory="assets/poses"):
         valid_extensions = ['.png', '.jpg', '.jpeg', '.bmp']
         desired_order = [
             "normal_standing_stance.png",
-            "star_pose.png",
+            "star.png",
             "tandem_stance.png",
             "heel_raise.png",
-            "flamingo_left.png",
-            "flamingo_right.png"
+            "left_flamingo.PNG",
+            "right_flamingo.png"
         ]
         files = [f for f in desired_order if os.path.exists(os.path.join(directory, f))]
 
