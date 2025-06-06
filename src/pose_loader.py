@@ -19,7 +19,7 @@ def load_poses(directory="assets/poses"):
             "normal_standing_stance.png",
             "star_pose.png",
             "tandem_stance.png",
-            "heel_rise.png",
+            "heel_raise.png",
             "flamingo_left.png",
             "flamingo_right.png"
         ]

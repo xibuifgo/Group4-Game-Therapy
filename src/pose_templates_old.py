@@ -28,7 +28,7 @@ class PoseTemplates:
                     "torso_lean": 0
                 },
                 "tolerances": {
-                    "default": 25,
+                    "default": 45,
                     "torso_lean": 15
                 }, 
                 "special_check": "star_pose"
@@ -48,7 +48,7 @@ class PoseTemplates:
             },
 
             {  # Heel Raise
-                "name": "Heel Rise",
+                "name": "Heel Raise",
                 "description": "Stand on your toes, lifting your heels",
                 "angles": {
                     "torso_lean": 0
@@ -57,7 +57,7 @@ class PoseTemplates:
                     "default": 25,
                     "torso_lean": 15
                 },
-                "special_check": "heel_rise"
+                "special_check": "heel_raise"
             },
 
             {  # Flamingo Left
@@ -132,7 +132,7 @@ class PoseTemplates:
                 left_ankle_y = angles.get("left_ankle_y")
                 right_ankle_y = angles.get("right_ankle_y")
                 if left_ankle_y is not None and right_ankle_y is not None:
-                    return 100 if left_ankle_y < right_ankle_y else 0
+                    return 100 if left_ankle_y > right_ankle_y + 0.1 else 0
             except:
                 pass
             return 0
@@ -143,7 +143,7 @@ class PoseTemplates:
                 right_ankle_y = angles.get("right_ankle_y")
                 left_ankle_y = angles.get("left_ankle_y")
                 if right_ankle_y is not None and left_ankle_y is not None:
-                    return 100 if right_ankle_y < left_ankle_y else 0
+                    return 100 if right_ankle_y > left_ankle_y + 0.1 else 0
             except:
                 pass
             return 0
@@ -157,8 +157,8 @@ class PoseTemplates:
                 ankle_spread = abs(left_ankle_x - right_ankle_x)
 
                 shoulder_score = (
-                    self._score_angle(angles.get("left_shoulder", 0), 135, 25) +
-                    self._score_angle(angles.get("right_shoulder", 0), 135, 25)
+                    self._score_angle(angles.get("left_shoulder", 0), 90, 45) +
+                    self._score_angle(angles.get("right_shoulder", 0), 90, 45)
                 ) / 2
 
                 # Require significant spread between ankles (tweak threshold as needed)
@@ -188,15 +188,15 @@ class PoseTemplates:
             except:
                 return 0
 
-        elif special_check == "heel_rise":
+        elif special_check == "heel_raise":
             try:
-                left_heel_y = angles.get("left_ankle_y")
-                right_heel_y = angles.get("right_ankle_y")
+                left_heel_y = angles.get("left_heel_y")
+                right_heel_y = angles.get("right_heel_y")
                 left_toe_y = angles.get("left_toe_y")
                 right_toe_y = angles.get("right_toe_y")
 
                 # Heels must be higher (lower y value) than toes
-                lifted = (left_heel_y < left_toe_y - 0.02) and (right_heel_y < right_toe_y - 0.02)
+                lifted = (left_heel_y > left_toe_y - 0.02) and (right_heel_y > right_toe_y - 0.02)
 
                 leg_score = (
                     self._score_angle(angles.get("left_leg", 0), 180, 25) +
@@ -279,13 +279,15 @@ class PoseTemplates:
             # Flaming pose specific feedback
             lifted_leg = "left" if "left" in special_check else "right"
 
-            lifted_angle = angles.get(f"{lifted_leg}_leg", 0)
+            lifted_ankle_y = angles.get(f"{lifted_leg}_ankle_y")
+            standing_ankle_y = angles.get(f"{'right' if lifted_leg == 'left' else 'left'}_ankle_y")
             lean = angles.get("torso_lean", 0)
                 
-            if abs(lifted_angle - 90) <= 40:
-                feedback.append(f":) Your {lifted_leg.title()} leg is lifted")
-            else:
-                feedback.append(f":( Lift your {lifted_leg} leg higher")
+            if lifted_ankle_y is not None and standing_ankle_y is not None:
+                if lifted_ankle_y > standing_ankle_y:
+                    feedback.append(":) Your leg is well lifted")
+                else:
+                    feedback.append(f":( Lift your {lifted_leg} leg higher")
                 
             if abs(lean) <= 20:
                 feedback.append(":) Your balance is good")
@@ -302,15 +304,15 @@ class PoseTemplates:
             right_ankle_x = angles.get("right_ankle_x", 0)
             ankle_spread = abs(left_ankle_x - right_ankle_x)
 
-            if abs(left_shoulder - 90) <= 25:
+            if abs(left_shoulder - 90) <= 45:
                 feedback.append(":) Good left arm position")
             else:
-                feedback.append(":( Spread you left arm more")
+                feedback.append(":( Keep your arms paralell to the floor")
 
-            if abs(right_shoulder - 90) <= 25:
+            if abs(right_shoulder - 90) <= 45:
                 feedback.append(":) Good right arm position")
             else:
-                feedback.append(":( Spread your right arm more")
+                feedback.append(":( Keep your arms paralell to the floor")
 
             if ankle_spread >= 0.1:
                 feedback.append(":) Good legs position")
@@ -340,8 +342,8 @@ class PoseTemplates:
 
             return "\n".join(feedback)
         
-        elif special_check == "heel_rise":
-            # Heel rise specific feedback
+        elif special_check == "heel_raise":
+            # Heel raise specific feedback
             feedback = []
             torso = angles.get("torso_lean", 0)
             left_heel = angles.get("left_ankle_y", 1)
@@ -354,10 +356,10 @@ class PoseTemplates:
             else:
                 feedback.append(":( Keep your torso upright")
 
-            if left_heel < left_toe - 0.02 and right_heel < right_toe - 0.02:
+            if left_heel > left_toe - 0.02 and right_heel > right_toe - 0.02:
                 feedback.append(":) Your heels are lifted")
             else:
-                feedback.append(":( Lift your heels higher")
+                feedback.append(f":( Lift your heels higher {left_heel} {left_toe}")
 
             return "\n".join(feedback)
 

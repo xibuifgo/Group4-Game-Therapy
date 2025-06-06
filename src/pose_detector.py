@@ -73,7 +73,10 @@ class PoseDetector:
             right_wrist = landmarks_array[self.mp_pose.PoseLandmark.RIGHT_WRIST.value]
             left_ankle = landmarks_array[self.mp_pose.PoseLandmark.LEFT_ANKLE.value]
             right_ankle = landmarks_array[self.mp_pose.PoseLandmark.RIGHT_ANKLE.value]
-            nose = landmarks_array[self.mp_pose.PoseLandmark.NOSE.value]
+            left_heel = landmarks_array[self.mp_pose.PoseLandmark.LEFT_HEEL.value]
+            right_heel = landmarks_array[self.mp_pose.PoseLandmark.RIGHT_HEEL.value]            
+            left_toe = landmarks_array[self.mp_pose.PoseLandmark.LEFT_FOOT_INDEX.value]
+            right_toe = landmarks_array[self.mp_pose.PoseLandmark.RIGHT_FOOT_INDEX.value]           
 
             # Calculate shoulder angles (arm positioning)
             angles['left_shoulder'] = self.calculate_angle(left_hip, left_shoulder, left_elbow)
@@ -88,22 +91,25 @@ class PoseDetector:
             mid_shoulder = (left_shoulder + right_shoulder) / 2
             angles['torso_lean'] = self.calculate_torso_lean(mid_hip, mid_shoulder)
 
-            # Calculate heel elevation (tip toes)
-            angles["left_toe_y"] = landmarks_array[self.mp_pose.PoseLandmark.LEFT_FOOT_INDEX.value][1]
-            angles["right_toe_y"] = landmarks_array[self.mp_pose.PoseLandmark.RIGHT_FOOT_INDEX.value][1]
-
             # Additional useful angles
             angles['hip_angle'] = self.calculate_angle(left_hip, right_hip, 
                                                     np.array([right_hip[0], right_hip[1] - 0.1, right_hip[2]]))
             
+            # Ankles positions in x-direction
             angles["left_ankle_x"] = left_ankle[0]
             angles["right_ankle_x"] = right_ankle[0]
             
+            # Ankles positions in y-direction            
             angles["left_ankle_y"] = left_ankle[1]
             angles["right_ankle_y"] = right_ankle[1]
 
+            # Heels positions in y-direction            
+            angles["left_heel_y"] = left_heel[1]
+            angles["right_heel_y"] = right_heel[1]
 
-
+            # Toes positions in y-direction
+            angles["left_toe_y"] = left_toe[1]
+            angles["right_toe_y"] = right_toe[1]
 
 
         except (IndexError, ValueError) as e:
