@@ -9,12 +9,12 @@ class GameScreen(Screen):
         self.clock = clock
         
         try:
-            sleeping_bear = pygame.image.load("images/sleeping_bear.png")
-            back_sleeping = pygame.image.load("images/back_sleeping.png")
-            waking_bear = pygame.image.load("images/waking_bear.png")
-            left_ear = pygame.image.load("images/left_ear.png")
-            right_ear = pygame.image.load("images/right_ear.png")
-            angry_bear = pygame.image.load("images/angry_bear.png")
+            sleeping_bear = pygame.image.load("assets/images/sleeping_bear.png")
+            back_sleeping = pygame.image.load("assets/images/back_sleeping.png")
+            waking_bear = pygame.image.load("assets/images/waking_bear.png")
+            left_ear = pygame.image.load("assets/images/left_ear.png")
+            right_ear = pygame.image.load("assets/images/right_ear.png")
+            angry_bear = pygame.image.load("assets/images/angry_bear.png")
         except pygame.error:
             sleeping_bear = self.create_placeholder_image((200, 200), (150, 150, 200))
             back_sleeping = self.create_placeholder_image((100, 50), (100, 100, 150))
@@ -35,7 +35,7 @@ class GameScreen(Screen):
         self.angry_bear = pygame.transform.scale(angry_bear, (window_width // 2, window_height // 2))
 
     def create_placeholder_image(self, size, color):
-        """Create a placeholder image when actual images aren't available"""
+        """Create a placeholder image when actual assets/images aren't available"""
         surface = pygame.Surface(size)
         surface.fill(color)
         return surface
