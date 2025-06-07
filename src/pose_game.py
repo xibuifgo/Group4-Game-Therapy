@@ -17,6 +17,8 @@ except ImportError as e:
     print("Falling back to accelerometer data")
     POSE_DETECTION_AVAILABLE = False
 
+DEV_MODE = False
+
 class PoseGame:
     def __init__(self, window, clock):
         self.window = window
@@ -26,6 +28,10 @@ class PoseGame:
         self.current_pose_index = 0
         self.game_over = False
         self.total_score = 0
+
+        self.pixel_font = pygame.font.Font("assets/fonts/VT323-Regular.ttf", 58)
+        self.pixel_font_small = pygame.font.Font("assets/fonts/VT323-Regular.ttf", 40)
+        self.pixel_font_large = pygame.font.Font("assets/fonts/VT323-Regular.ttf", 90)
 
         self.pose_full_duration = 3
         self.pose_corner_duration = 10
@@ -61,8 +67,8 @@ class PoseGame:
         self.current_score = 0
 
         # Fonts
-        self.font = pygame.font.SysFont('Comic Sans MS', 48)
-        self.feedback_font = pygame.font.SysFont('Comic Sans MS', 40)
+        self.font = pygame.font.Font("assets/fonts/VT323-Regular.ttf", 48)
+        self.feedback_font = pygame.font.Font("assets/fonts/VT323-Regular.ttf", 40)
 
         # UI elements
         button_raw = {
@@ -87,6 +93,17 @@ class PoseGame:
         self.pose_feedback_text = ""
         self.previous_landmarks = None
 
+    def draw_text_with_outline(self, surface, text, font, x, y, text_color, outline_color=(0, 0, 0), outline_width=2):
+        # Draw outline
+        for dx in [-outline_width, 0, outline_width]:
+            for dy in [-outline_width, 0, outline_width]:
+                if dx != 0 or dy != 0:
+                    outline_surface = font.render(text, True, outline_color)
+                    surface.blit(outline_surface, (x + dx, y + dy))
+        # Draw center text
+        text_surface = font.render(text, True, text_color)
+        surface.blit(text_surface, (x, y))
+
     def create_feedback_image(self, feedback_type):
         """Create visual feedback images"""
         image = pygame.Surface((200, 200))
@@ -102,7 +119,7 @@ class PoseGame:
             pygame.draw.line(image, (255, 255, 255), (150, 50), (50, 150), 10)
         else:  # neutral
             image.fill((150, 150, 150))
-            font = pygame.font.SysFont('Comic Sans MS', 100)
+            font = pygame.font.Font("assets/fonts/VT323-Regular.ttf", 100)
             text = font.render("?", True, (255, 255, 255))
             image.blit(text, (80, 50))
         return image
@@ -115,8 +132,33 @@ class PoseGame:
         self.game_over = False
         self.mock_activity_level = 0
         self.previous_landmarks = None
-        self.phase = "preview"  # Show camera preview first
+        if DEV_MODE:
+            self.phase = "full"
+            self.start_new_pose()
+        else:
+            self.phase = "preview"
         self.ready_confirmed = False  
+
+    def draw_ready_circle(self, center, radius, duration, start_time):
+        if start_time is None:
+            return
+        elapsed = time.time() - start_time
+        progress = min(elapsed / duration, 1)
+
+        # Draw background circle (grey)
+        pygame.draw.circle(self.window, (100, 100, 100), center, radius, 5)
+
+        # Draw progress arc (yellow/gold)
+        end_angle = -math.pi / 2 + 2 * math.pi * progress
+        points = [center]
+        for i in range(0, int(360 * progress) + 1, 2):
+            angle = -math.pi / 2 + math.radians(i)
+            x = center[0] + radius * math.cos(angle)
+            y = center[1] + radius * math.sin(angle)
+            points.append((x, y))
+        if len(points) > 2:
+            pygame.draw.polygon(self.window, (246, 203, 102), points)
+
 
     def start_new_pose(self):
         """Start a new pose challenge"""
@@ -318,11 +360,14 @@ class PoseGame:
 
         if self.camera_surface:
             cam_rect = self.camera_surface.get_rect(center=(self.width // 2, self.height // 2 - 100))
+            border_rect = cam_rect.inflate(10, 10)
+            pygame.draw.rect(self.window, (46, 15, 0), border_rect, width=4, border_radius=6)
             self.window.blit(self.camera_surface, cam_rect)
+
         else:
             cam_rect = pygame.Rect(0, 0, 0, 0)
 
-        font_large = pygame.font.SysFont('Comic Sans MS', 45)
+        font_large = pygame.font.Font("assets/fonts/VT323-Regular.ttf", 45)
         instruction_color = (246, 203, 102)
 
         instructions = [
@@ -335,33 +380,38 @@ class PoseGame:
         instruction_start_y = cam_rect.bottom + 30
 
         for i, line in enumerate(instructions):
-            # Set color: red for the last line, otherwise the regular color
             color = (255, 0, 0) if i == len(instructions) - 1 else instruction_color
-            text_surface = font_large.render(line, True, color)
-            x = self.width // 2 - text_surface.get_width() // 2
+            x = self.width // 2
             y = instruction_start_y + i * 50
-            self.window.blit(text_surface, (x, y))
+            self.draw_text_with_outline(self.window, line, font_large, x - font_large.size(line)[0] // 2, y, color)
+
+
+        # Draw circle if arms are raised
+        if self.preview_raise_start_time:
+            center = (45, self.height - 45)
+            self.draw_ready_circle(center, 40, 3, self.preview_raise_start_time)
+
 
 
     def draw_start_screen(self):
         # Show background and title
         self.window.blit(self.background_image, (0, 0))
-        title_text = pygame.font.SysFont('Comic Sans MS', 100).render("BALANCIMALS", True, (224, 139, 33))
+        title_text = title_text = self.pixel_font_large.render("BALANCIMALS", True, (246, 203, 102))
         self.window.blit(title_text, (self.width//2 - title_text.get_width()//2, self.height//2 - 150))
 
         # Button
         self.window.blit(self.start_button_images[self.start_button_state], self.start_button_rect)
 
         # Instruction text
-        instruction = pygame.font.SysFont('Comic Sans MS', 48).render("Balance training made fun!", True, (46, 15, 0))
+        instruction = pygame.font.Font("assets/fonts/VT323-Regular.ttf", 48).render("Balance training made fun!", True, (46, 15, 0))
         self.window.blit(instruction, (self.width//2 - instruction.get_width()//2, self.height//2 + 200))
 
 
     def draw_game_over_screen(self):
         """Draw game over screen"""
         # Game over text
-        game_over_text = pygame.font.SysFont('Comic Sans MS', 100).render("GAME OVER", True, (246, 203, 102))
-        score_text = pygame.font.SysFont('Comic Sans MS', 80).render(f"Final Score: {int(self.total_score)}", True, (246, 203, 102))
+        game_over_text = pygame.font.Font("assets/fonts/VT323-Regular.ttf", 100).render("GAME OVER", True, (246, 203, 102))
+        score_text = pygame.font.Font("assets/fonts/VT323-Regular.ttf", 80).render(f"Final Score: {int(self.total_score)}", True, (246, 203, 102))
         
         self.window.blit(game_over_text, (self.width//2 - game_over_text.get_width()//2, self.height//3))
         self.window.blit(score_text, (self.width//2 - score_text.get_width()//2, self.height//2))
@@ -369,7 +419,7 @@ class PoseGame:
         # Restart button
         restart_button = pygame.Rect(self.width//2 - 100, self.height*2//3, 200, 50)
         pygame.draw.rect(self.window, (100, 100, 255), restart_button)
-        restart_text = pygame.font.SysFont('Comic Sans MS', 60).render("RESTART", True, (246, 203, 102))
+        restart_text = pygame.font.Font("assets/fonts/VT323-Regular.ttf", 60).render("RESTART", True, (246, 203, 102))
         self.window.blit(restart_text, (self.width//2 - restart_text.get_width()//2,
                                       self.height*2//3 + 25 - restart_text.get_height()//2))
 
@@ -380,15 +430,36 @@ class PoseGame:
             preview_width = 400
             preview_height = 300
             self.camera_surface = pygame.transform.scale(self.camera_surface, (preview_width, preview_height))
-            self.window.blit(self.camera_surface, (50, self.height // 2 - preview_height // 2))
 
-            preview_label = self.font.render("Camera Preview", True, (246, 203, 102))
-            self.window.blit(preview_label, (50, self.height // 2 - preview_height // 2 - 70))
+            cam_x = 20
+            cam_y = 85
+            cam_rect = pygame.Rect(cam_x, cam_y, preview_width, preview_height)
+
+            # Draw border
+            pygame.draw.rect(self.window, (46, 15, 0), cam_rect.inflate(10, 10), width=4, border_radius=6)
+
+            # Draw camera
+            self.window.blit(self.camera_surface, cam_rect)
 
         # Phase-specific rendering
         if self.phase == "full":
             self.draw_full_phase()
-        elif self.phase == "corner" or self.phase == "scoring":
+
+            # Show instruction if arms aren't raised for full 3 seconds yet
+            if self.pose_raise_start_time is None or (time.time() - self.pose_raise_start_time < 3):
+                instruction_text = "Raise both arms above your shoulders to begin!"
+                font_large = pygame.font.Font("assets/fonts/VT323-Regular.ttf", 45)
+                text_surface = font_large.render(instruction_text, True, (255, 0, 0))
+                x = self.width // 2 - text_surface.get_width() // 2
+                y = self.height - 100
+                self.draw_text_with_outline(self.window, instruction_text, font_large, x, y, (255, 0, 0))
+
+        # Arms-up indicator before each pose
+        if self.pose_raise_start_time:
+            center = (45, self.height - 45)
+            self.draw_ready_circle(center, 40, 3, self.pose_raise_start_time)
+
+        if self.phase == "corner" or self.phase == "scoring":
             self.draw_corner_phase()
 
         # Always visible UI elements
@@ -397,55 +468,51 @@ class PoseGame:
     def draw_full_phase(self):
         """Draw pose in full screen during learning phase"""
         if self.current_pose and len(self.current_pose) >= 3:
-            # Scale and display pose image
             scaled_pose = pygame.transform.scale(self.current_pose[0], (400, 400))
-            self.window.blit(scaled_pose, (self.width//2 - 200, self.height//2 - 200))
-            
-            # Pose name and description
-            name_text = pygame.font.SysFont('Comic Sans MS', 56).render(self.current_pose[1], True, (246, 203, 102))
-            desc_text = pygame.font.SysFont('Comic Sans MS', 44).render(self.current_pose[2], True, (246, 203, 102))
-            
-            self.window.blit(name_text, (self.width//2 - name_text.get_width()//2, self.height//2 + 200))
-            self.window.blit(desc_text, (self.width//2 - desc_text.get_width()//2, self.height//2 + 265))
-            
-            # Instruction
-            instruction = pygame.font.SysFont('Comic Sans MS', 56).render("Arms above your shoulder when you're ready!", True, (255, 0, 0))
-            self.window.blit(instruction, (30, self.height - 80))
-            
-            # # Countdown
-            # elapsed = time.time() - self.start_time
-            # countdown = max(0, self.pose_full_duration - int(elapsed))
-            # countdown_text = pygame.font.SysFont('Comic Sans MS', 80).render(f"{countdown}", True, (255, 0, 0))
-            # self.window.blit(countdown_text, (self.width//2 - countdown_text.get_width()//2, 50))
+            pose_x = self.width // 2 - 200
+            pose_y = self.height // 2 - 200
+            self.window.blit(scaled_pose, (pose_x, pose_y))
+
+            # Text positions
+            name_text = self.pixel_font.render(self.current_pose[1], True, (246, 203, 102))
+            name_x = self.width // 2 - name_text.get_width() // 2
+            name_y = pose_y - name_text.get_height() - 10  # Just above pose image
+            self.draw_text_with_outline(self.window, self.current_pose[1], self.pixel_font, name_x, name_y, (246, 203, 102))
+
+            # Description still below the image
+            desc_text = self.pixel_font.render(self.current_pose[2], True, (246, 203, 102))
+            desc_x = self.width // 2 - desc_text.get_width() // 2
+            desc_y = pose_y + 400 + 15
+            self.draw_text_with_outline(self.window, self.current_pose[2], self.pixel_font, desc_x, desc_y, (246, 203, 102))
+
+
+
 
     def draw_corner_phase(self):
         """Draw pose in corner during detection phase"""
         if self.current_pose and len(self.current_pose) >= 1:
             # Small pose reference in corner
             scaled_pose = pygame.transform.scale(self.current_pose[0], (150, 150))
-            self.window.blit(scaled_pose, (self.width - 170, 20))
-            
-            # Reference label
-            ref_label = pygame.font.SysFont('Comic Sans MS', 25).render("Reference", True, (246, 203, 102))
-            self.window.blit(ref_label, (self.width - 170, 175))
+            pose_rect = scaled_pose.get_rect(topleft=(self.width - 170, 20))
 
-        # Feedback display
-        self.window.blit(self.current_feedback, (self.width//2 - 100, self.height//2 - 100))
+            # Draw background box (frame)
+            pygame.draw.rect(self.window, (46, 15, 0), pose_rect.inflate(10, 10), border_radius=8)  # Optional border radius
+            self.window.blit(scaled_pose, pose_rect)
+
+            # Reference label
+            ref_label = pygame.font.Font("assets/fonts/VT323-Regular.ttf", 25).render("Reference", True, (246, 203, 102))
+            self.window.blit(ref_label, (pose_rect.x, pose_rect.bottom + 5))
+
+            # Feedback display
+            self.window.blit(self.current_feedback, (self.width//2 - 100, self.height//2 - 100))
 
         if self.phase == "corner":
-            # # Active pose detection
-            # instruction = pygame.font.SysFont('Comic Sans MS', 30).render("Copy the pose now!", True, (0, 0, 255))
-            # self.window.blit(instruction, (self.width//2 - instruction.get_width()//2, self.height//2 + 120))
-            
+        
             # Countdown
             elapsed = time.time() - self.start_time
             countdown = max(0, self.pose_corner_duration - int(elapsed))
-            countdown_text = pygame.font.SysFont('Comic Sans MS', 60).render(f"{countdown}", True, (255, 0, 0))
+            countdown_text = pygame.font.Font("assets/fonts/VT323-Regular.ttf", 60).render(f"{countdown}", True, (255, 0, 0))
             self.window.blit(countdown_text, (self.width//2 - countdown_text.get_width()//2, 50))
-            
-            # Current score
-            score_text = self.font.render(f"Current Score: {int(self.current_score)}", True, (246, 203, 102))
-            self.window.blit(score_text, (20, 60))
             
             # Pose feedback
             if self.pose_feedback_text:
@@ -453,7 +520,7 @@ class PoseGame:
                 
         else:  # scoring phase
             # Result display
-            result_text = pygame.font.SysFont('Comic Sans MS', 40).render(
+            result_text = pygame.font.Font("assets/fonts/VT323-Regular.ttf", 40).render(
                 "GREAT JOB!" if self.current_feedback == self.success_image else "TRY HARDER!",
                 True, (0, 150, 0) if self.current_feedback == self.success_image else (150, 0, 0))
             self.window.blit(result_text, (self.width//2 - result_text.get_width()//2, self.height//2 + 120))
@@ -470,32 +537,49 @@ class PoseGame:
         # Use larger font if it's a special pose
         feedback_lines = self.pose_feedback_text.split("\n")
         font_size = 55
-        feedback_font = pygame.font.SysFont('Comic Sans MS', font_size)
+        feedback_font = pygame.font.Font("assets/fonts/VT323-Regular.ttf", font_size)
             
         feedback_lines = self.pose_feedback_text.split("\n")
         y_offset = self.height - 250
         
         for i, line in enumerate(feedback_lines[:4]):  # Limit to 4 lines
             if line.strip():
-                feedback_render = feedback_font.render(line, True, (246, 203, 102))
-                x_pos = self.width // 2 - feedback_render.get_width() // 2
-                self.window.blit(feedback_render, (x_pos, y_offset + i * 60))
+                x_pos = self.width // 2 - feedback_font.size(line)[0] // 2
+                y_pos = y_offset + i * 60
+                self.draw_text_with_outline(self.window, line, feedback_font, x_pos, y_pos, (246, 203, 102))
 
     def draw_ui_elements(self):
-        """Draw always-visible UI elements"""
-        # Total score
-        score_text = self.font.render(f"Total Score: {int(self.total_score)}", True, (246, 203, 102))
-        self.window.blit(score_text, (20, 20))
-        
-        # Progress
-        progress_text = self.font.render(f"Pose {self.current_pose_index + 1}/{len(self.poses)}", True, (246, 203, 102))
+        """Draw context-specific UI elements"""
+        # FONT
+        font = self.font
+        padding = 20
+
+        if self.phase in ["full", "corner"]:
+            # Show current pose score (top-left)
+            score_text = font.render(f"Pose Score: {int(self.current_score)}", True, (246, 203, 102))
+            box_width = score_text.get_width() + padding * 2
+            box_height = score_text.get_height() + padding
+            box_rect = pygame.Rect(15, 15, box_width, box_height)
+
+            pygame.draw.rect(self.window, (40, 40, 40), box_rect, border_radius=10)
+            pygame.draw.rect(self.window, (46, 15, 0), box_rect, width=3, border_radius=10)
+            self.window.blit(score_text, (box_rect.x + padding, box_rect.y + (box_height - score_text.get_height()) // 2))
+
+        elif self.phase == "scoring":
+            # Show total score after pose is completed
+            total_text = font.render(f"Total Score: {int(self.total_score)}", True, (246, 203, 102))
+            box_width = total_text.get_width() + padding * 2
+            box_height = total_text.get_height() + padding
+            box_rect = pygame.Rect(15, 15, box_width, box_height)
+
+            pygame.draw.rect(self.window, (40, 40, 40), box_rect, border_radius=10)
+            pygame.draw.rect(self.window, (46, 15, 0), box_rect, width=3, border_radius=10)
+            self.window.blit(total_text, (box_rect.x + padding, box_rect.y + (box_height - total_text.get_height()) // 2))
+
+        # Pose progress (always shown)
+        progress_text = font.render(f"Pose {self.current_pose_index + 1}/{len(self.poses)}", True, (246, 203, 102))
         self.window.blit(progress_text, (self.width - 200, self.height - 70))
-        
-        # # Detection method
-        # method_text = "Camera Detection" if self.use_pose_detection else "Simulated Data"
-        # method_color = (0, 150, 0) if self.use_pose_detection else (150, 0, 0)
-        # method_render = self.font.render(method_text, True, method_color)
-        # self.window.blit(method_render, (self.width//2 - method_render.get_width()//2, self.height - 30))
+
 
     def handle_events(self, events):
         mouse_pos = pygame.mouse.get_pos()

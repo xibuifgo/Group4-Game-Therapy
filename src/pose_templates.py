@@ -34,9 +34,9 @@ class PoseTemplates:
         tolerances = template["tolerances"]
 
         if check == "flamingo_left":
-            return 100 if angles.get("left_ankle_y", 0) > angles.get("right_ankle_y", 0) + 0.1 else 0
+            return 100 if angles.get("left_ankle_y", 0) > 0.5 * angles.get("right_knee_y", 0) else 0
         elif check == "flamingo_right":
-            return 100 if angles.get("right_ankle_y", 0) > angles.get("left_ankle_y", 0) + 0.1 else 0
+            return 100 if angles.get("right_ankle_y", 0) > 0.5 * angles.get("left_knee_y", 0) else 0
         elif check == "star_pose":
             spread_ok = abs(angles.get("left_ankle_x", 0) - angles.get("right_ankle_x", 0)) >= 0.1
             if not spread_ok: return 0
@@ -111,7 +111,7 @@ class PoseTemplates:
 
         elif check == "star_pose":
             if abs(angles.get("left_shoulder", 0) - 90) > 45 or abs(angles.get("right_shoulder", 0) - 90) > 45:
-                feedback.append("Raise arms to shoulder height")
+                feedback.append("Keep your arms at shoulder height")
             else:
                 feedback.append(":) Good arms position")
             if abs(angles.get("left_ankle_x", 0) - angles.get("right_ankle_x", 0)) < 0.1:
