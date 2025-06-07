@@ -1,0 +1,50 @@
+.Navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background-color: #f7f7f7;
+
+  p {
+    margin: 0;
+    font-size: 1rem;
+    color: black;
+  }
+}
+
+.NavLeft {
+  font-weight: bold;
+}
+
+.NavLinks {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+
+  p {
+    cursor: pointer;
+    margin: 0;
+  }
+}
+
+.SUButton {
+  background-color: black;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  cursor: pointer;
+  display: inline-block;
+
+  p {
+    margin: 0;
+    color: white;
+  }
+}
+
+.Foot {
+    padding: 25px 0 25px 0;
+    background: gray;
+    text-align: center;
+}

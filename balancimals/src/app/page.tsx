@@ -35,7 +35,7 @@ export default function Home() {
             <h2 className={styles.Physio}>
               For Physiotherapists
             </h2>
-            <a className={styles.BtnLink}>
+            <a className={styles.BtnLink} href="/login">
               <div className = {styles.Btn}>
                 <p>Log In</p>
               </div>

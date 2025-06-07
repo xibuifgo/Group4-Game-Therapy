@@ -1,0 +1,262 @@
+.Navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background-color: #f7f7f7;
+
+  p {
+    margin: 0;
+    font-size: 1rem;
+    color: black;
+  }
+}
+
+.NavLeft {
+  font-weight: bold;
+}
+
+.NavLinks {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+
+  p {
+    cursor: pointer;
+    margin: 0;
+  }
+}
+
+.BookButton {
+  background-color: black;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  cursor: pointer;
+  display: inline-block;
+
+  p {
+    margin: 0;
+    color: white;
+  }
+}
+
+.LogIn {
+    background-image: url('/login_bg.png');
+    background-size: cover;
+    background-position: center;
+    height: 100vh;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-evenly;
+}
+
+.Inputs {
+    display: flex;
+    flex-direction: column;
+    margin-top: auto;
+    margin-bottom: auto;
+}
+
+.Inputs h1 {
+    color: #FFF;
+    font-family: Inter;
+    font-size: 64px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: normal;
+    letter-spacing: -1.28px;
+}
+
+.Inputs h3 {
+    color: #FFF;
+    font-family: Inter;
+    font-size: 36px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: normal;
+    letter-spacing: -1.28px;
+    margin-bottom: 20px;
+}
+
+.Inputs input {
+    border-radius: 20px;
+    background: #D9D9D9;
+    width: 363px;
+    height: 62px;
+    flex-shrink: 0;
+    margin: 8.5px 0 8.5px 0;
+    color: black;
+    padding-left: 10px;
+}
+
+.LIBtn {
+    border-radius: 8px;
+    background: #000;
+
+    /* Button Shadow */
+    box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.05);
+
+    display: flex;
+    width: 129px;
+    height: 47px;
+    padding: 20px 32px;
+    align-items: center;
+    // gap: 8px;
+    flex-shrink: 0;
+    text-align: center;
+    margin-top: 10px;
+}
+
+.LIBtn p {
+    font-size: 24px;
+    margin: 0;
+    padding: 0;
+}
+
+.ImgBorder {
+    width: 714.411px;
+    height: 454px;
+    flex-shrink: 0;
+    aspect-ratio: 714.41/454.00;
+    display: block;
+    margin-top: auto;
+    margin-bottom: auto;
+}
+
+.Bottom {
+    display: flex;
+    flex-direction: column;
+    background: white;
+}
+
+.Bottom h1 { 
+    color: #000;
+    font-family: Inter;
+    font-size: 48px;
+    font-style: normal;
+    font-weight: 600;
+    line-height: normal;
+    letter-spacing: -0.96px;
+    margin-top: 92px;
+    margin-left: 96px;
+}
+
+.Services {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-evenly;
+    // margin-bottom: 50px;
+}
+
+.Card {
+    display: flex;
+    flex-direction: column;
+    width: 300px;
+}
+
+.Card h4 {
+    color: #000;
+    font-family: Inter;
+    font-size: 24px;
+    font-style: normal;
+    font-weight: 500;
+    line-height: 150%; /* 36px */
+}
+
+.Card p {
+    color: #828282;
+    font-family: Inter;
+    font-size: 24px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 150%; /* 36px */
+}
+
+.Icon {
+    margin-top: 50px;
+    width: 195px;
+    height: 195px;
+}
+
+.Reviews {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-evenly;
+    margin: 50px 0 50px 0;
+}
+
+.Feedback {
+    display: flex;
+    height: 402px;
+    padding: var(--Spacing-SM, 32px);
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex: 1 0 0;
+
+    border-radius: 12px;
+    border: 1px solid var(--color-border);
+    background: #FFF;
+
+    padding: 2rem;
+    border-radius: 12px;
+    border: 1px solid #eee;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    width: 100%;
+    max-width: 320px;
+
+}
+
+.Text {
+  color: black;
+  font-size: 1.1rem;
+  margin-bottom: 1.5rem;
+}
+
+
+.User {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem; /* spacing between image and text */
+}
+
+
+.UserImg {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: url('/user.png') center / cover no-repeat, #D9D9D9;
+}
+
+
+.UserInfo {
+    display: flex;
+    flex-direction: column;
+}
+
+.UserInfo h5 {
+    color: #000;
+    font-weight: 700;
+
+    /* Small text */
+    font-family: Inter;
+    font-size: 16px;
+    font-style: normal;
+    font-weight: 500;
+    line-height: 150%; /* 24px */
+}
+
+.UserInfo p {
+    color: #828282;
+
+    /* Small text */
+    font-family: Inter;
+    font-size: 16px;
+    font-style: normal;
+    font-weight: 500;
+    line-height: 150%; /* 24px */
+}
