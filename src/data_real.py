@@ -4,6 +4,7 @@ import matplotlib.pyplot
 import numpy 
 import json
 import time
+import serial.tools.list_ports
 
 vals = {"AcX": [0],
             "AcY": [0],
@@ -12,18 +13,15 @@ vals = {"AcX": [0],
             "GyY": [0],
             "GyZ": [0]}
 
+ports = serial.tools.list_ports.comports(include_links=True)
+available = [port.device for port in ports]
+
 def connect():
-    import serial.tools.list_ports
 
-    ports = serial.tools.list_ports.comports(include_links=True)
-    available = [port.device for port in ports]
     ser = serial.Serial(available[0], 115200, timeout=0.2)
-
     return ser
 
 def read_data(ser=None):
-
-    global vals
 
     if __name__ != "__main__":
         ser = connect()
