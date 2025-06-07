@@ -39,3 +39,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Python virtual environment
+.venv/
+venv/
+
+# Ignore all __pycache__ folders recursively
+**/__pycache__/
+
+# Compiled Python files
+*.pyc
+*.pyo
+*.pyd
