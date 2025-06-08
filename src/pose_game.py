@@ -41,6 +41,7 @@ class PoseGame:
         self.phase = "preview"
         self.ready_confirmed = False
         self.preview_raise_start_time = None
+        self.current_bear_state = "sleeping"  # or "neutral" if you have one
 
         self.poses = load_poses()
         self.current_pose = None
@@ -92,6 +93,12 @@ class PoseGame:
         self.camera_surface = None
         self.pose_feedback_text = ""
         self.previous_landmarks = None
+
+        self.bear_states = {
+            "sleeping": pygame.image.load("assets/images/sleeping_bear.png").convert_alpha(),
+            "waking": pygame.image.load("assets/images/waking_bear.png").convert_alpha(),
+            "angry": pygame.image.load("assets/images/angry_bear.png").convert_alpha(),
+        }
 
     def draw_text_with_outline(self, surface, text, font, x, y, text_color, outline_color=(0, 0, 0), outline_width=2):
         # Draw outline
@@ -292,6 +299,7 @@ class PoseGame:
         elif self.phase == "corner":
             # Continuously calculate score during pose detection phase
             self.current_score = self.calculate_pose_score()
+            self.update_bear_state(self.current_score)
             
             if elapsed >= self.pose_corner_duration:
                 # Evaluate final score and provide feedback
@@ -341,6 +349,13 @@ class PoseGame:
                 else:
                     self.preview_raise_start_time = None
                 
+    def update_bear_state(self, score):
+        if score >= 80:
+            self.current_bear_state = "sleeping"
+        elif score >= 50:
+            self.current_bear_state = "waking"
+        else:
+            self.current_bear_state = "angry"
 
     def draw(self):
         """Render the game"""
@@ -465,6 +480,11 @@ class PoseGame:
         # Always visible UI elements
         self.draw_ui_elements()
 
+    def draw_reactive_bear(self):
+        bear_img = self.bear_states[self.current_bear_state]
+        bear_scaled = pygame.transform.scale(bear_img, (300, 300))
+        self.window.blit(bear_scaled, (self.width // 2 - 150, 100))
+
     def draw_full_phase(self):
         """Draw pose in full screen during learning phase"""
         if self.current_pose and len(self.current_pose) >= 3:
@@ -505,6 +525,8 @@ class PoseGame:
 
             # Feedback display
             self.window.blit(self.current_feedback, (self.width//2 - 100, self.height//2 - 100))
+
+            self.draw_reactive_bear()
 
         if self.phase == "corner":
         
