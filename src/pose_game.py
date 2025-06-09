@@ -430,7 +430,7 @@ class PoseGame:
         instruction_start_y = cam_rect.bottom + int(self.height * 0.02)
 
         for i, line in enumerate(instructions):
-            color = (255, 0, 0) if i == len(instructions) - 1 else instruction_color
+            color = (158, 209, 242) if i == len(instructions) - 1 else instruction_color
             x = self.width // 2
             y = instruction_start_y + i * int(self.height * 0.05)
             self.draw_text_with_outline(self.window, line, font_large, x - font_large.size(line)[0] // 2, y, color)
@@ -453,7 +453,7 @@ class PoseGame:
         self.window.blit(self.start_button_images[self.start_button_state], self.start_button_rect)
 
         # Instruction text
-        instruction = self.font.render("Balance training made fun!", True, (46, 15, 0))
+        instruction = self.font.render("Balance training made fun!", True, (246, 203, 102))
         self.window.blit(instruction, (self.width//2 - instruction.get_width()//2, self.height//2 + 200))
 
 
@@ -506,10 +506,10 @@ class PoseGame:
             if self.pose_raise_start_time is None or (time.time() - self.pose_raise_start_time < 3):
                 instruction_text = "Raise both arms above your shoulders to begin!"
                 font_large = self.font_large
-                text_surface = font_large.render(instruction_text, True, (255, 0, 0))
+                text_surface = font_large.render(instruction_text, True, (158, 209, 242))
                 x = self.width // 2 - text_surface.get_width() // 2
                 y = self.height - 100
-                self.draw_text_with_outline(self.window, instruction_text, font_large, x, y, (255, 0, 0))
+                self.draw_text_with_outline(self.window, instruction_text, font_large, x, y, (158, 209, 242))
 
         # Arms-up indicator before each pose
         if self.pose_raise_start_time:
