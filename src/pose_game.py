@@ -131,7 +131,8 @@ class PoseGame:
 
         # Flags to avoid repeating speech
         self.preview_spoken = False
-        self.full_raise_spoken = False
+        self.pose_intro_spoken = False
+        self.arms_instruction_spoken = False
 
 
     def draw_text_with_outline(self, surface, text, font, x, y, text_color, outline_color=(0, 0, 0), outline_width=2):
@@ -187,7 +188,8 @@ class PoseGame:
         self.mock_activity_level = 0
         self.previous_landmarks = None
         self.preview_spoken = False
-        self.full_raise_spoken = False
+        self.pose_intro_spoken = False
+        self.arms_instruction_spoken = False
 
         if DEV_MODE:
             self.phase = "full"
@@ -215,23 +217,23 @@ class PoseGame:
             points.append((x, y))
         if len(points) > 2:
             pygame.draw.polygon(self.window, (246, 203, 102), points)
-
-
+            
     def start_new_pose(self):
         """Start a new pose challenge"""
         if self.current_pose_index >= len(self.poses):
             self.game_over = True
             return
-            
+
         self.current_pose = self.poses[self.current_pose_index]
-        # Speak the new pose out loud
-        name, desc = self.current_pose[1], self.current_pose[2]
-        self.speak_text(f"Next pose: {name}. {desc}")
         self.phase = "full"
         self.start_time = time.time()
         self.current_score = 0
         self.pose_feedback_text = ""
         self.mock_activity_level += 1
+        
+        # Reset speech flags for this pose
+        self.pose_intro_spoken = False
+        self.arms_instruction_spoken = False
 
     def calculate_pose_score(self):
         """Calculate current pose score based on detection method"""
@@ -278,12 +280,15 @@ class PoseGame:
             self.pose_feedback_text = f"Detection error: {str(e)[:50]}"
             return 0
         
-    def speak_text(self, text):
+    def speak_text(self, text, delay: float = 0.0):
         if not self.tts_enabled: return
-        def _worker(msg):
+
+        def _worker(msg, wait):
+            if wait > 0: time.sleep(wait)
             self.tts_engine.say(msg)
             self.tts_engine.runAndWait()
-        threading.Thread(target=_worker, args=(text,), daemon=True).start()
+
+        threading.Thread(target=_worker, args=(text, delay), daemon=True).start()
 
 
     def calculate_pose_score_from_accelerometer(self):
@@ -334,13 +339,19 @@ class PoseGame:
         elapsed = current_time - self.start_time
         
         if self.phase == "full":
+            # Speak the arms instruction after 2.5 seconds if not already spoken
+            if not self.arms_instruction_spoken and elapsed >= 0.5:
+                # Speak once, half a second after entering full phase
+                self.speak_text("Raise both arms above your shoulders to begin!")
+                self.arms_instruction_spoken = True
+
+            
             frame, landmarks = self.pose_detector.get_camera_frame()
             if frame is not None:
                 self.camera_surface = self.pose_detector.frame_to_pygame_surface(frame)
                 preview_width = int(self.width * 0.25)
                 preview_height = int(self.height * 0.3)
                 self.camera_surface = pygame.transform.scale(self.camera_surface, (preview_width, preview_height))
-
 
             if landmarks:
                 left_hand_raised = landmarks.landmark[self.pose_detector.mp_pose.PoseLandmark.LEFT_WRIST.value].y < \
@@ -413,14 +424,6 @@ class PoseGame:
                 else:
                     self.preview_raise_start_time = None
                 
-    # def update_bear_state(self, score):
-    #     if score >= 80:
-    #         self.current_bear_state = "sleeping"
-    #     elif score >= 50:
-    #         self.current_bear_state = "waking"
-    #     else:
-    #         self.current_bear_state = "angry"
-
     def draw(self):
         """Render the game"""
         self.window.blit(self.background_image, (0, 0))
@@ -472,13 +475,10 @@ class PoseGame:
             self.speak_text(prompt)
             self.preview_spoken = True
 
-
         # Draw circle if arms are raised
         if self.preview_raise_start_time:
             center = (45, self.height - 45)
             self.draw_ready_circle(center, 40, 3, self.preview_raise_start_time)
-
-
 
     def draw_start_screen(self):
         # Show background and title
@@ -492,7 +492,6 @@ class PoseGame:
         # Instruction text
         instruction = self.font.render("Balance training made fun!", True, (246, 203, 102))
         self.window.blit(instruction, (self.width//2 - instruction.get_width()//2, self.height//2 + 200))
-
 
     def draw_game_over_screen(self):
         """Draw game over screen"""
@@ -516,7 +515,6 @@ class PoseGame:
         text_y = restart_button.centery - restart_text.get_height() // 2
         self.window.blit(restart_text, (text_x, text_y))
 
-
     def draw_game_screen(self):
         """Draw main game screen"""
         # Camera preview (if using pose detection)
@@ -537,11 +535,6 @@ class PoseGame:
 
         # Phase-specific rendering
         if self.phase == "full":
-            # One‐time TTS trigger
-            if not self.full_raise_spoken:
-                self.speak_text("Raise both arms above your shoulders to begin!")
-                self.full_raise_spoken = True
-
             # Always draw the full-pose screen
             self.draw_full_phase()
 
@@ -593,7 +586,6 @@ class PoseGame:
                 line_x = self.width // 2 - desc_font.size(line)[0] // 2
                 line_y = start_y + i * line_spacing
                 self.draw_text_with_outline(self.window, line, desc_font, line_x, line_y, (246, 203, 102))
-
 
     def draw_corner_phase(self):
         """Draw pose in corner during detection phase"""
