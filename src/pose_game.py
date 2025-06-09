@@ -6,6 +6,8 @@ import time
 import math
 from pose_loader import load_poses
 from bear_animator import BearAnimator
+import threading
+import pyttsx3
 
 
 # Try to import pose detection - fallback to mock data if not available
@@ -119,6 +121,19 @@ class PoseGame:
             "angry": pygame.image.load("assets/images/angry_bear.PNG").convert_alpha(),
         }
 
+        # TTS setup
+        try:
+            self.tts_engine = pyttsx3.init()
+            self.tts_enabled = True
+        except Exception as e:
+            print("TTS init failed:", e)
+            self.tts_enabled = False
+
+        # Flags to avoid repeating speech
+        self.preview_spoken = False
+        self.full_raise_spoken = False
+
+
     def draw_text_with_outline(self, surface, text, font, x, y, text_color, outline_color=(0, 0, 0), outline_width=2):
         # Draw outline
         for dx in [-outline_width, 0, outline_width]:
@@ -171,6 +186,9 @@ class PoseGame:
         self.game_over = False
         self.mock_activity_level = 0
         self.previous_landmarks = None
+        self.preview_spoken = False
+        self.full_raise_spoken = False
+
         if DEV_MODE:
             self.phase = "full"
             self.start_new_pose()
@@ -206,6 +224,9 @@ class PoseGame:
             return
             
         self.current_pose = self.poses[self.current_pose_index]
+        # Speak the new pose out loud
+        name, desc = self.current_pose[1], self.current_pose[2]
+        self.speak_text(f"Next pose: {name}. {desc}")
         self.phase = "full"
         self.start_time = time.time()
         self.current_score = 0
@@ -256,6 +277,14 @@ class PoseGame:
             print(f"Error in camera pose detection: {e}")
             self.pose_feedback_text = f"Detection error: {str(e)[:50]}"
             return 0
+        
+    def speak_text(self, text):
+        if not self.tts_enabled: return
+        def _worker(msg):
+            self.tts_engine.say(msg)
+            self.tts_engine.runAndWait()
+        threading.Thread(target=_worker, args=(text,), daemon=True).start()
+
 
     def calculate_pose_score_from_accelerometer(self):
         """Fallback scoring using accelerometer data simulation"""
@@ -435,6 +464,14 @@ class PoseGame:
             y = instruction_start_y + i * int(self.height * 0.05)
             self.draw_text_with_outline(self.window, line, font_large, x - font_large.size(line)[0] // 2, y, color)
 
+        if not self.preview_spoken:
+            prompt = "Place your laptop on a leveled chair-height surface. " \
+                    "Stand two meters away from it. " \
+                    "Ensure your room is well lit and your full body is visible. " \
+                    "Raise both arms above your shoulders to begin!"
+            self.speak_text(prompt)
+            self.preview_spoken = True
+
 
         # Draw circle if arms are raised
         if self.preview_raise_start_time:
@@ -500,16 +537,23 @@ class PoseGame:
 
         # Phase-specific rendering
         if self.phase == "full":
+            # One‐time TTS trigger
+            if not self.full_raise_spoken:
+                self.speak_text("Raise both arms above your shoulders to begin!")
+                self.full_raise_spoken = True
+
+            # Always draw the full-pose screen
             self.draw_full_phase()
 
-            # Show instruction if arms aren't raised for full 3 seconds yet
+            # Show instruction overlay until arms are raised for 3s
             if self.pose_raise_start_time is None or (time.time() - self.pose_raise_start_time < 3):
                 instruction_text = "Raise both arms above your shoulders to begin!"
                 font_large = self.font_large
                 text_surface = font_large.render(instruction_text, True, (158, 209, 242))
                 x = self.width // 2 - text_surface.get_width() // 2
                 y = self.height - 100
-                self.draw_text_with_outline(self.window, instruction_text, font_large, x, y, (158, 209, 242))
+                self.draw_text_with_outline(self.window, instruction_text,
+                                           font_large, x, y, (158, 209, 242))
 
         # Arms-up indicator before each pose
         if self.pose_raise_start_time:
