@@ -17,9 +17,23 @@ ports = serial.tools.list_ports.comports(include_links=True)
 available = [port.device for port in ports]
 
 def connect():
+    ports = serial.tools.list_ports.comports()
+    available = [port.device for port in ports]
 
-    ser = serial.Serial(available[0], 115200, timeout=0.2)
-    return ser
+    if not available:
+        raise serial.SerialException("No serial ports found.")
+
+    for port in available:
+        try:
+            ser = serial.Serial(port, 115200, timeout=0.2)
+            time.sleep(2)  # Give the ESP32 time to reset
+            print(f"[INFO] Connected to {port}")
+            return ser
+        except Exception as e:
+            print(f"[WARNING] Could not open {port}: {e}")
+
+    raise serial.SerialException("Could not connect to any available port.")
+
 
 def read_data(ser=None):
 
@@ -28,13 +42,14 @@ def read_data(ser=None):
 
     while True: 
         line = ser.readline()
+        try:
+            line = line.decode("utf-8").strip()
+        except UnicodeDecodeError:
+            print("[WARNING] Received non-UTF-8 data, skipping...")
+            continue
 
-        cleaned_line = line.decode("utf-8").strip()
-        if cleaned_line.startswith("b'") and cleaned_line.endswith("'"):
-            line = cleaned_line[2:-1]
-        
         if not line:
-            print("Warning: Received an empty line, skipping...")
+            print("[DEBUG] Empty line received.")
             continue
 
         try:
