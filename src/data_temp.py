@@ -18,26 +18,36 @@ def generate_mock_data():
     """Generate simulated sensor data instead of reading from actual hardware"""
     global vals, running
 
-    freq = 0.5
-    amplitude = 0.5
-
     start_time = time.time()
     
     while running:
         elapsed = time.time() - start_time
 
-        vals["AcX"].append(amplitude * math.sin(freq * elapsed) + random.uniform(-0.1, 0.1))
-        vals["AcY"].append(amplitude * math.sin(freq * elapsed + 1) + random.uniform(-0.1, 0.1))
-        vals["AcZ"].append(amplitude * math.sin(freq * elapsed + 2) + random.uniform(-0.1, 0.1))
-        vals["GyX"].append(amplitude * 0.5 * math.cos(freq * elapsed) + random.uniform(-0.05, 0.05))
-        vals["GyY"].append(amplitude * 0.5 * math.cos(freq * elapsed + 1) + random.uniform(-0.05, 0.05))
-        vals["GyZ"].append(amplitude * 0.5 * math.cos(freq * elapsed + 2) + random.uniform(-0.05, 0.05))
-        
+        # Simulate semi-random balance noise bursts with some base values
+        base_acc = [0, 0, 1]  # standing still: mostly Z gravity
+        base_gyro = [0, 0, 0] # not rotating
+
+        # Add small noise, and occasional bursts
+        def noisy(val, burst_chance=0.1):
+            if random.random() < burst_chance:
+                return val + random.uniform(-3, 3)  # simulate balance loss
+            else:
+                return val + random.uniform(-0.2, 0.2)
+
+        vals["AcX"].append(noisy(base_acc[0]))
+        vals["AcY"].append(noisy(base_acc[1]))
+        vals["AcZ"].append(noisy(base_acc[2]))
+        vals["GyX"].append(noisy(base_gyro[0]))
+        vals["GyY"].append(noisy(base_gyro[1]))
+        vals["GyZ"].append(noisy(base_gyro[2]))
+
+        # Truncate to keep length manageable
         for key in vals:
             if len(vals[key]) > 100:
                 vals[key] = vals[key][-100:]
-        
-        time.sleep(0.05)  # 20Hz update rate
+
+        time.sleep(0.05)  # 20Hz
+
 
 def connect():
     """Mock connection function that always succeeds"""

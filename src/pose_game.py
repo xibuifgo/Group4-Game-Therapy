@@ -5,6 +5,8 @@ import data_temp
 import time
 import math
 from pose_loader import load_poses
+from bear_animator import BearAnimator
+
 
 # Try to import pose detection - fallback to mock data if not available
 try:
@@ -39,6 +41,8 @@ class PoseGame:
         self.font_large = pygame.font.Font("assets/fonts/VT323-Regular.ttf", font_large_size)
         self.font_xlarge = pygame.font.Font("assets/fonts/VT323-Regular.ttf", font_xlarge_size)
 
+        self.bear_animator = BearAnimator(self.width, self.height)
+
         self.pose_full_duration = 3
         self.pose_corner_duration = 10
         self.current_time = 0
@@ -65,9 +69,8 @@ class PoseGame:
 
         # Create feedback images
         self.success_image = self.create_feedback_image("success")
+        self.success_image = self.create_feedback_image("success")
         self.fail_image = self.create_feedback_image("fail")
-        self.neutral_image = self.create_feedback_image("neutral")
-        self.current_feedback = self.neutral_image
 
         # Scoring
         self.score_threshold = 70
@@ -83,7 +86,7 @@ class PoseGame:
         original_width, original_height = button_raw["default"].get_size()
         aspect_ratio = original_width / original_height
 
-        button_width = int(self.width * 0.25)
+        button_width = int(self.width * 0.15)
         button_height = int(button_width / aspect_ratio)
 
         # Resize all button states to match
@@ -95,8 +98,14 @@ class PoseGame:
         self.start_button_rect = self.start_button_images["default"].get_rect(center=(self.width // 2, int(self.height * 0.6)))
 
 
-        self.background_image = pygame.image.load("assets/images/bear_background.png").convert()
+        self.background_image = pygame.image.load("assets/images/background_2.png").convert()
         self.background_image = pygame.transform.scale(self.background_image, (self.width, self.height))
+
+        self.logo_image = pygame.image.load("assets/images/balancimals_logo.png").convert_alpha()
+        logo_width = int(self.width * 0.5)
+        logo_height = int(logo_width * self.logo_image.get_height() / self.logo_image.get_width())
+        self.logo_image = pygame.transform.scale(self.logo_image, (logo_width, logo_height))
+
 
         # State variables
         self.mock_activity_level = 0
@@ -106,8 +115,8 @@ class PoseGame:
 
         self.bear_states = {
             "sleeping": pygame.image.load("assets/images/sleeping_bear.png").convert_alpha(),
-            "waking": pygame.image.load("assets/images/waking_bear.png").convert_alpha(),
-            "angry": pygame.image.load("assets/images/angry_bear.png").convert_alpha(),
+            "waking": pygame.image.load("assets/images/waking_bear.PNG").convert_alpha(),
+            "angry": pygame.image.load("assets/images/angry_bear.PNG").convert_alpha(),
         }
 
     def draw_text_with_outline(self, surface, text, font, x, y, text_color, outline_color=(0, 0, 0), outline_width=2):
@@ -152,11 +161,6 @@ class PoseGame:
             # Draw X
             pygame.draw.line(image, (255, 255, 255), (50, 50), (150, 150), 10)
             pygame.draw.line(image, (255, 255, 255), (150, 50), (50, 150), 10)
-        else:  # neutral
-            image.fill((150, 150, 150))
-            font = self.font_xlarge
-            text = font.render("?", True, (255, 255, 255))
-            image.blit(text, (80, 50))
         return image
 
     def start_game(self):
@@ -205,7 +209,6 @@ class PoseGame:
         self.phase = "full"
         self.start_time = time.time()
         self.current_score = 0
-        self.current_feedback = self.neutral_image
         self.pose_feedback_text = ""
         self.mock_activity_level += 1
 
@@ -330,7 +333,7 @@ class PoseGame:
         elif self.phase == "corner":
             # Continuously calculate score during pose detection phase
             self.current_score = self.calculate_pose_score()
-            self.update_bear_state(self.current_score)
+            self.bear_animator.update(self.current_score)
             
             if elapsed >= self.pose_corner_duration:
                 # Evaluate final score and provide feedback
@@ -345,6 +348,7 @@ class PoseGame:
                 self.start_time = current_time
                 
         elif self.phase == "scoring" and elapsed >= 3:
+            self.bear_animator.update(self.current_score)
             # Move to next pose or end game
             self.current_pose_index += 1
             if self.current_pose_index < len(self.poses):
@@ -380,13 +384,13 @@ class PoseGame:
                 else:
                     self.preview_raise_start_time = None
                 
-    def update_bear_state(self, score):
-        if score >= 80:
-            self.current_bear_state = "sleeping"
-        elif score >= 50:
-            self.current_bear_state = "waking"
-        else:
-            self.current_bear_state = "angry"
+    # def update_bear_state(self, score):
+    #     if score >= 80:
+    #         self.current_bear_state = "sleeping"
+    #     elif score >= 50:
+    #         self.current_bear_state = "waking"
+    #     else:
+    #         self.current_bear_state = "angry"
 
     def draw(self):
         """Render the game"""
@@ -442,8 +446,8 @@ class PoseGame:
     def draw_start_screen(self):
         # Show background and title
         self.window.blit(self.background_image, (0, 0))
-        title_text = self.font_xlarge.render("BALANCIMALS", True, (246, 203, 102))
-        self.window.blit(title_text, (self.width//2 - title_text.get_width()//2, self.height//2 - 150))
+        logo_rect = self.logo_image.get_rect(center=(self.width // 2, self.height // 2 - 150))
+        self.window.blit(self.logo_image, logo_rect)
 
         # Button
         self.window.blit(self.start_button_images[self.start_button_state], self.start_button_rect)
@@ -501,7 +505,7 @@ class PoseGame:
             # Show instruction if arms aren't raised for full 3 seconds yet
             if self.pose_raise_start_time is None or (time.time() - self.pose_raise_start_time < 3):
                 instruction_text = "Raise both arms above your shoulders to begin!"
-                font_large = self.font
+                font_large = self.font_large
                 text_surface = font_large.render(instruction_text, True, (255, 0, 0))
                 x = self.width // 2 - text_surface.get_width() // 2
                 y = self.height - 100
@@ -517,11 +521,6 @@ class PoseGame:
 
         # Always visible UI elements
         self.draw_ui_elements()
-
-    def draw_reactive_bear(self):
-        bear_img = self.bear_states[self.current_bear_state]
-        bear_scaled = pygame.transform.scale(bear_img, (300, 300))
-        self.window.blit(bear_scaled, (self.width // 2 - 150, 100))
 
     def draw_full_phase(self):
         """Draw pose in full screen during learning phase"""
@@ -554,46 +553,44 @@ class PoseGame:
 
     def draw_corner_phase(self):
         """Draw pose in corner during detection phase"""
+        self.bear_animator.draw(self.window)  # Only draw bear via BearAnimator (no separate feedback image)
+
         if self.current_pose and len(self.current_pose) >= 1:
             # Small pose reference in corner
             scaled_pose = pygame.transform.scale(self.current_pose[0], (150, 150))
             pose_rect = scaled_pose.get_rect(topleft=(self.width - 170, 20))
 
             # Draw background box (frame)
-            pygame.draw.rect(self.window, (46, 15, 0), pose_rect.inflate(10, 10), border_radius=8)  # Optional border radius
+            pygame.draw.rect(self.window, (46, 15, 0), pose_rect.inflate(10, 10), border_radius=8)
             self.window.blit(scaled_pose, pose_rect)
 
             # Reference label
             ref_label = self.font_small.render("Reference", True, (246, 203, 102))
             self.window.blit(ref_label, (pose_rect.x, pose_rect.bottom + 5))
 
-            # Feedback display
-            self.window.blit(self.current_feedback, (self.width//2 - 100, self.height//2 - 100))
-
-            self.draw_reactive_bear()
-
         if self.phase == "corner":
-        
             # Countdown
             elapsed = time.time() - self.start_time
             countdown = max(0, self.pose_corner_duration - int(elapsed))
-            countdown_text = self.font.render(f"{countdown}", True, (255, 0, 0))
+            countdown_text = self.font_xlarge.render(f"{countdown}", True, (255, 0, 0))
             self.window.blit(countdown_text, (self.width//2 - countdown_text.get_width()//2, 50))
-            
+
             # Pose feedback
             if self.pose_feedback_text:
                 self.draw_pose_feedback()
-                
+
         else:  # scoring phase
             # Result display
             result_text = self.font_small.render(
                 "GREAT JOB!" if self.current_feedback == self.success_image else "TRY HARDER!",
-                True, (0, 150, 0) if self.current_feedback == self.success_image else (150, 0, 0))
+                True, (0, 150, 0) if self.current_feedback == self.success_image else (150, 0, 0)
+            )
             self.window.blit(result_text, (self.width//2 - result_text.get_width()//2, self.height//2 + 120))
-            
+
             # Final score for this pose
             final_score_text = self.font.render(f"Pose Score: {int(self.current_score)}", True, (246, 203, 102))
             self.window.blit(final_score_text, (self.width//2 - final_score_text.get_width()//2, self.height//2 + 160))
+
 
     def draw_pose_feedback(self):
         """Draw detailed pose feedback"""
