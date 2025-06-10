@@ -132,7 +132,7 @@ class PoseGame:
         # Audio setup
         pygame.mixer.init()  # call before loading any music
         self.music_files = {
-            "start":   "assets/music/start.mp3",
+            "start": "assets/music/start.mp3",
             "setup": "assets/music/setup.mp3",
             "prep": "assets/music/prep.mp3",
             "pose": "assets/music/pose.mp3"
@@ -313,45 +313,64 @@ class PoseGame:
 
         threading.Thread(target=_worker, args=(text, delay), daemon=True).start()
 
-
     def calculate_pose_score_from_accelerometer(self):
-        """Fallback scoring using accelerometer data simulation"""
-        try:
-            # Get sensor data (simulated)
-            ax = data_temp.vals["AcX"][-1] if data_temp.vals["AcX"] else 0
-            ay = data_temp.vals["AcY"][-1] if data_temp.vals["AcY"] else 0
-            az = data_temp.vals["AcZ"][-1] if data_temp.vals["AcZ"] else 0
-            gx = data_temp.vals["GyX"][-1] if data_temp.vals["GyX"] else 0
-            gy = data_temp.vals["GyY"][-1] if data_temp.vals["GyY"] else 0
-            gz = data_temp.vals["GyZ"][-1] if data_temp.vals["GyZ"] else 0
+        """Override scoring with phase-based cycling for animation testing"""
+        elapsed = time.time() - self.start_time
+        phase = int(elapsed // 3) % 3
 
-            # Calculate activity level
-            sensor_activity = math.sqrt(ax**2 + ay**2 + az**2 + gx**2 + gy**2 + gz**2)
-            elapsed = time.time() - self.start_time
+        if phase == 0:
+            score = 85  # sleeping
+            self.pose_feedback_text = "🛌 Sleeping (score 85)"
+        elif phase == 1:
+            score = 65  # waking
+            self.pose_feedback_text = "👀 Waking (score 65)"
+        else:
+            score = 30  # angry
+            self.pose_feedback_text = "😠 Angry (score 30)"
+
+        print(f"[DEBUG] Phase: {phase}, Forced Score: {score}")
+        return score
+
+
+
+    # def calculate_pose_score_from_accelerometer(self):
+    #     """Fallback scoring using accelerometer data simulation"""
+    #     try:
+    #         # Get sensor data (simulated)
+    #         ax = data_temp.vals["AcX"][-1] if data_temp.vals["AcX"] else 0
+    #         ay = data_temp.vals["AcY"][-1] if data_temp.vals["AcY"] else 0
+    #         az = data_temp.vals["AcZ"][-1] if data_temp.vals["AcZ"] else 0
+    #         gx = data_temp.vals["GyX"][-1] if data_temp.vals["GyX"] else 0
+    #         gy = data_temp.vals["GyY"][-1] if data_temp.vals["GyY"] else 0
+    #         gz = data_temp.vals["GyZ"][-1] if data_temp.vals["GyZ"] else 0
+
+    #         # Calculate activity level
+    #         sensor_activity = math.sqrt(ax**2 + ay**2 + az**2 + gx**2 + gy**2 + gz**2)
+    #         elapsed = time.time() - self.start_time
             
-            # Basic scoring algorithm
-            base_score = 60 + (self.current_pose_index * 5)
-            activity_factor = min(30, sensor_activity * 30)
-            time_factor = min(15, elapsed * 1.5)
+    #         # Basic scoring algorithm
+    #         base_score = 60 + (self.current_pose_index * 5)
+    #         activity_factor = min(30, sensor_activity * 30)
+    #         time_factor = min(15, elapsed * 1.5)
             
-            score = base_score + activity_factor + time_factor + random.uniform(-15, 15)
-            score = min(100, max(0, score))
+    #         score = base_score + activity_factor + time_factor + random.uniform(-15, 15)
+    #         score = min(100, max(0, score))
             
-            # Update feedback
-            if score >= self.score_threshold:
-                self.pose_feedback_text = "Good pose detected!"
-            else:
-                self.pose_feedback_text = "Keep adjusting your pose"
+    #         # Update feedback
+    #         if score >= self.score_threshold:
+    #             self.pose_feedback_text = "Good pose detected!"
+    #         else:
+    #             self.pose_feedback_text = "Keep adjusting your pose"
             
-            # Debug output
-            if int(elapsed) % 2 == 0:
-                print(f"Pose {self.current_pose_index+1} Score: {score:.1f} (base:{base_score} + activity:{activity_factor:.1f} + time:{time_factor:.1f})")
+    #         # Debug output
+    #         if int(elapsed) % 2 == 0:
+    #             print(f"Pose {self.current_pose_index+1} Score: {score:.1f} (base:{base_score} + activity:{activity_factor:.1f} + time:{time_factor:.1f})")
             
-            return score
+    #         return score
             
-        except Exception as e:
-            print(f"Error in accelerometer scoring: {e}")
-            return 0
+    #     except Exception as e:
+    #         print(f"Error in accelerometer scoring: {e}")
+    #         return 0
 
     def update(self):
         """Update game state"""
@@ -616,7 +635,6 @@ class PoseGame:
 
     def draw_corner_phase(self):
         """Draw pose in corner during detection phase"""
-        self.bear_animator.draw(self.window)  # Only draw bear via BearAnimator (no separate feedback image)
 
         if self.current_pose and len(self.current_pose) >= 1:
             # Small pose reference in corner
@@ -632,6 +650,9 @@ class PoseGame:
             self.window.blit(ref_label, (pose_rect.x, pose_rect.bottom + 5))
 
         if self.phase == "corner":
+            bear_center = (self.width // 2, self.height - int(self.height * 0.25))
+            self.bear_animator.draw(self.window, center_pos=bear_center)
+
             # Countdown
             elapsed = time.time() - self.start_time
             countdown = max(0, self.pose_corner_duration - int(elapsed))
@@ -663,7 +684,8 @@ class PoseGame:
         feedback_lines = self.pose_feedback_text.split("\n")
         feedback_font = self.font_large
 
-        y_offset = self.height - int(self.height * 0.3)
+        y_offset = int(self.height * 0.35)
+
 
         for i, line in enumerate(feedback_lines[:4]):
             if line.strip():

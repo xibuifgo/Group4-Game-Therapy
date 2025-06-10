@@ -71,46 +71,60 @@ class BearAnimator:
         self.state = new_state
         self.prev_state = new_state
 
-    def draw(self, surface):
+    def draw(self, surface, center_pos=None):
+        if center_pos is None:
+            center_pos = (self.width // 2, self.height // 2)
+
         if self.state == "sleeping":
-            self._draw_sleep(surface)
+            self._draw_sleep(surface, center_pos)
         elif self.state == "waking":
-            self._draw_wake(surface)
+            self._draw_wake(surface, center_pos)
         else:
-            self._draw_angry(surface)
+            self._draw_angry(surface, center_pos)
 
-    def _draw_sleep(self, surface):
-        # base position
-        bear_rect = self.sleep_img.get_rect()  
-        x = self.width // 2 - bear_rect.width // 2
-        y = self.height // 2 - bear_rect.height // 2
 
-        # bob
+    def _draw_sleep(self, surface, center_pos):
+        bear_rect = self.sleep_img.get_rect(center=center_pos)
+        x, y = bear_rect.topleft
+
+        # Bobbing animation
         bob = int((pygame.time.get_ticks() % 1000) / 1000 * 5)
-        # back then bear
+
+        # Draw base bear
         surface.blit(self.sleep_img, (x, y))
-        surface.blit(self.back_img, (x + int(self.back_dx_frac * self.width), y + int(self.back_dy_frac * self.height) + bob))
-        # floating ZZZ
+        surface.blit(self.back_img, (x + int(self.back_dx_frac * self.width),
+                                    y + int(self.back_dy_frac * self.height) + bob))
+
+        # Floating ZZZ (responsive + left-aligned above bear)
         t = pygame.time.get_ticks() % 2000
         f = t / 2000
-        font = pygame.font.Font(None, 36)
-        txt = font.render("ZZZ", True, (200,200,200))
-        txt.set_alpha(max(0, 255 - int(f*255)))
-        surface.blit(txt, (x, y - 20 - int(f * 100)))
+        font = pygame.font.Font(None, int(self.height * 0.05))  # scale font to screen height
+        txt = font.render("ZZZ", True, (200, 200, 200))
+        txt.set_alpha(max(0, 255 - int(f * 255)))
+        zzz_x = center_pos[0] - int(self.sleep_img.get_width() * 0.25) - txt.get_width() // 2  # 25% left of bear center
+        zzz_y = y - int(self.height * 0.05) - int(f * self.height * 0.1)
 
-    def _draw_wake(self, surface):
-        bear_rect = self.sleep_img.get_rect()  
-        x = self.width // 2 - bear_rect.width // 2
-        y = self.height // 2 - bear_rect.height // 2
+        surface.blit(txt, (zzz_x, zzz_y))
+
+
+    def _draw_wake(self, surface, center_pos):
+        bear_rect = self.wake_img.get_rect(center=center_pos)
+        x, y = bear_rect.topleft
 
         surface.blit(self.wake_img, (x, y))
-        # pupil
-        max_dx = int((self.right_ear_dx_frac - self.eye_offset_x_frac) * 400)
-        if self.pupil_x < x + int(self.right_ear_dx_frac * 400):
-            self.pupil_x += 0.4
-        pygame.draw.circle(surface, (20,20,20), (int(self.pupil_x), self.pupil_y), 5)
-        # ears twitch
-        off = 2 if ((pygame.time.get_ticks()//200)%2)==0 else -2
+
+        # Pupil
+        eye_x = x + int(self.eye_offset_x_frac * self.wake_img.get_width())
+        eye_y = y + int(self.eye_offset_y_frac * self.wake_img.get_height())
+        pupil_range = int(self.wake_img.get_width() * 0.05)  # move ~5% of bear width
+        pupil_x = eye_x - int(pupil_range * 0.5) + int((pygame.time.get_ticks() % 1000) / 1000 * pupil_range)
+        pupil_x -= int(self.wake_img.get_width() * 0.015)  # shift left ~2% of bear width
+        pupil_y = eye_y + int(self.wake_img.get_height() * 0.30)  # shift down ~2% of bear height
+
+        pygame.draw.circle(surface, (20, 20, 20), (pupil_x, pupil_y), int(self.width * 0.006))
+
+        # Ears twitch
+        off = 2 if ((pygame.time.get_ticks() // 200) % 2) == 0 else -2
         lx = x + int(self.left_ear_dx_frac * 400) + off
         ly = y + int(self.left_ear_dy_frac * 300)
         rx = x + int(self.right_ear_dx_frac * 400) - off
@@ -118,9 +132,10 @@ class BearAnimator:
         surface.blit(self.l_ear_img, (lx, ly))
         surface.blit(self.r_ear_img, (rx, ry))
 
-    def _draw_angry(self, surface):
-        bear_rect = self.sleep_img.get_rect() 
-        x = self.width // 2 - bear_rect.width // 2
-        y = self.height // 2 - bear_rect.height // 2
-        shake = 5 if ((pygame.time.get_ticks()//100)%2)==0 else -5
+
+    def _draw_angry(self, surface, center_pos):
+        bear_rect = self.angry_img.get_rect(center=center_pos)
+        x, y = bear_rect.topleft
+
+        shake = 5 if ((pygame.time.get_ticks() // 100) % 2) == 0 else -5
         surface.blit(self.angry_img, (x + shake, y))
