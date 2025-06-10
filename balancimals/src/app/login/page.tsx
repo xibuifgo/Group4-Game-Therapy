@@ -4,13 +4,16 @@ import Prev from '../../../public/game_prev.png';
 import Dude from '../../../public/physio_icon.png';
 import Graph from '../../../public/stocks.png';
 import Report from '../../../public/report.png';
+import Title from '../../../public/title.png';
 
 export default function TLogIn() {
   return (
     <div>
         <div className={styles.LogIn}>
             <div className={styles.Inputs}>
-                <h1>Balancimals</h1>
+                <Image
+                src = {Title}
+                alt = "Balancimals written on a wooden board"/>
                 <h3>Login to access physiotherapist portal</h3>
                 <input type="text" id="username" placeholder="Enter Username" />
                 <input type="password" id="password" placeholder="Enter Password" />

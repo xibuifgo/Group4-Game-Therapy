@@ -1,0 +1,62 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400..900&family=Iceberg&family=Lakki+Reddy&family=Pixelify+Sans:wght@400..700&family=Play:wght@400;700&display=swap');
+
+.Container {
+    background-image: url('/login_bg.png');
+    background-size: cover;
+    background-position: center;
+    height: 100vh;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-evenly;
+
+    input {
+        border-radius: 20px;
+        background: #ffffff;
+        width: 363px;
+        height: 62px;
+        flex-shrink: 0;
+        margin: 8.5px 0 8.5px 0;
+        color: black;
+        padding-left: 10px;
+    }
+}
+
+.Btn {
+    border-radius: 8px;
+    border-color: black;
+    border-width: 1.5px;
+    background: white;
+    color: black;
+
+    /* Button Shadow */
+    box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.05);
+
+    display: flex;
+    width: 129px;
+    height: 47px;
+    padding: 20px 32px;
+    align-items: center;
+
+    flex-shrink: 0;
+    text-align: center;
+    margin: 10px auto 0 auto;
+}
+
+.Box {
+    background-color: #273559;
+    width: 500px;
+    height: auto;
+    border-radius: 10px;
+    display: block;
+    align-items: center;
+    margin: auto;
+    padding: 50px;
+
+    h1 {
+        color: white;
+        font-size: 48px;
+        font-weight: 900;
+        margin: 0 auto 0 auto;
+        font-family: Inter;
+    }
+}

@@ -1,9 +1,10 @@
+
 .Navbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 1rem 2rem;
-  background-color: #f7f7f7;
+  background-color: #273559;
 
   p {
     margin: 0;
@@ -41,6 +42,11 @@
     margin: 0;
     color: white;
   }
+}
+
+.Top {
+    display: flex;
+    flex-direction: row;
 }
 
 .Foot {
