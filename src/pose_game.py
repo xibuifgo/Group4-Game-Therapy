@@ -129,6 +129,17 @@ class PoseGame:
             print("TTS init failed:", e)
             self.tts_enabled = False
 
+        # Audio setup
+        pygame.mixer.init()  # call before loading any music
+        self.music_files = {
+            "start":   "assets/music/start.mp3",
+            "setup": "assets/music/setup.mp3",
+            "prep": "assets/music/prep.mp3",
+            "pose": "assets/music/pose.mp3"
+        }
+        self.current_music = None
+
+
         # Flags to avoid repeating speech
         self.preview_spoken = False
         self.pose_intro_spoken = False
@@ -163,6 +174,18 @@ class PoseGame:
             lines.append(current_line)
 
         return lines
+    
+    def play_music(self, key, loop=-1, fade_ms=500):
+        """Switch background track to `self.music_files[key]`."""
+        if self.current_music == key:
+            return
+        # fade out old music
+        pygame.mixer.music.fadeout(fade_ms)
+        # load & play the new track
+        pygame.mixer.music.load(self.music_files[key])
+        pygame.mixer.music.play(loop, fade_ms=fade_ms)
+        self.current_music = key
+
     
     def create_feedback_image(self, feedback_type):
         """Create visual feedback images"""
@@ -438,6 +461,7 @@ class PoseGame:
             self.draw_game_screen()
 
     def draw_preview_screen(self):
+        self.play_music("setup")
         self.window.blit(self.background_image, (0, 0))
 
         if self.camera_surface:
@@ -481,6 +505,7 @@ class PoseGame:
             self.draw_ready_circle(center, 40, 3, self.preview_raise_start_time)
 
     def draw_start_screen(self):
+        self.play_music("start")
         # Show background and title
         self.window.blit(self.background_image, (0, 0))
         logo_rect = self.logo_image.get_rect(center=(self.width // 2, self.height // 2 - 150))
@@ -535,6 +560,7 @@ class PoseGame:
 
         # Phase-specific rendering
         if self.phase == "full":
+            self.play_music("prep")
             # Always draw the full-pose screen
             self.draw_full_phase()
 
@@ -554,6 +580,7 @@ class PoseGame:
             self.draw_ready_circle(center, 40, 3, self.pose_raise_start_time)
 
         if self.phase == "corner" or self.phase == "scoring":
+            self.play_music("pose")
             self.draw_corner_phase()
 
         # Always visible UI elements

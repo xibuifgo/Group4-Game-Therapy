@@ -27,6 +27,8 @@ def main():
         clock.tick(FPS)
 
     pygame.quit()
+    pygame.mixer.music.stop()
+    pygame.mixer.quit()
     sys.exit()
 
 if __name__ == "__main__":
