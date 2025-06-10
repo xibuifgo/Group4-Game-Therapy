@@ -59,6 +59,16 @@ class PoseGame:
         self.current_pose = None
         self.pose_raise_start_time = None
 
+        self.pose_score_thresholds = {
+            0: {"good": 80, "moderate": 50},  # Normal Standing Stance
+            1: {"good": 75, "moderate": 45},  # Star Pose
+            2: {"good": 78, "moderate": 48},  # Tandem
+            3: {"good": 82, "moderate": 52},  # Heel Raise
+            4: {"good": 85, "moderate": 55},  # Flamingo Left
+            5: {"good": 85, "moderate": 55}   # Flamingo Right
+        }
+
+
         # Initialize pose detection and templates
         if POSE_DETECTION_AVAILABLE:
             self.use_pose_detection = True
@@ -259,11 +269,23 @@ class PoseGame:
         self.arms_instruction_spoken = False
 
     def calculate_pose_score(self):
-        """Calculate current pose score based on detection method"""
+        camera_score = 0
+        sensor_score = 0
+
         if self.use_pose_detection and self.pose_detector:
-            return self.calculate_pose_score_from_camera()
-        else:
-            return self.calculate_pose_score_from_accelerometer()
+            camera_score = self.calculate_pose_score_from_camera()
+
+        try:
+            from pose_scoring import PoseScorer
+            scorer = PoseScorer()
+            sensor_score = scorer.calculate_score(self.current_pose_index)
+        except Exception as e:
+            print(f"[ERROR] Sensor scoring failed: {e}")
+
+        # Weighted average: 70% camera + 30% sensor (you can adjust this)
+        final_score = 0.7 * camera_score + 0.3 * sensor_score
+        return final_score
+
 
     def calculate_pose_score_from_camera(self):
         """Calculate pose score using camera-based pose detection"""
@@ -415,17 +437,18 @@ class PoseGame:
         elif self.phase == "corner":
             # Continuously calculate score during pose detection phase
             self.current_score = self.calculate_pose_score()
-            self.bear_animator.update(self.current_score)
-            
+            thresholds = self.pose_score_thresholds.get(self.current_pose_index, {"good": 80, "moderate": 50})
+            if self.current_score >= thresholds["good"]:
+                bear_score = 85  # sleeping
+            elif self.current_score >= thresholds["moderate"]:
+                bear_score = 65  # waking
+            else:
+                bear_score = 30  # angry
+
+            self.bear_animator.update(bear_score)
+
             if elapsed >= self.pose_corner_duration:
-                # Evaluate final score and provide feedback
-                if self.current_score >= self.score_threshold:
-                    self.current_feedback = self.success_image
-                    self.total_score += self.current_score
-                else:
-                    self.current_feedback = self.fail_image
-                    self.total_score += self.current_score // 2
-                
+                self.total_score += self.current_score   
                 self.phase = "scoring"
                 self.start_time = current_time
                 
@@ -599,7 +622,6 @@ class PoseGame:
             self.draw_ready_circle(center, 40, 3, self.pose_raise_start_time)
 
         if self.phase == "corner" or self.phase == "scoring":
-            self.play_music("pose")
             self.draw_corner_phase()
 
         # Always visible UI elements
@@ -664,16 +686,18 @@ class PoseGame:
                 self.draw_pose_feedback()
 
         else:  # scoring phase
-            # Result display
-            result_text = self.font_small.render(
-                "GREAT JOB!" if self.current_feedback == self.success_image else "TRY HARDER!",
-                True, (0, 150, 0) if self.current_feedback == self.success_image else (150, 0, 0)
-            )
-            self.window.blit(result_text, (self.width//2 - result_text.get_width()//2, self.height//2 + 120))
+            pose_score_text = self.font_xlarge.render(f"{int(self.current_score)}", True, (246, 203, 102))
+            total_score_text = self.font_large.render(f"Total: {int(self.total_score)}", True, (246, 203, 102))
 
-            # Final score for this pose
-            final_score_text = self.font.render(f"Pose Score: {int(self.current_score)}", True, (246, 203, 102))
-            self.window.blit(final_score_text, (self.width//2 - final_score_text.get_width()//2, self.height//2 + 160))
+            pose_x = self.width // 2 - pose_score_text.get_width() // 2
+            pose_y = self.height // 2 - pose_score_text.get_height()
+
+            total_x = self.width // 2 - total_score_text.get_width() // 2
+            total_y = pose_y + pose_score_text.get_height() + int(self.height * 0.03)
+
+            self.draw_text_with_outline(self.window, f"{int(self.current_score)}", self.font_xlarge, pose_x, pose_y, (246, 203, 102))
+            self.draw_text_with_outline(self.window, f"Total: {int(self.total_score)}", self.font_large, total_x, total_y, (246, 203, 102))
+
 
 
     def draw_pose_feedback(self):
@@ -684,7 +708,7 @@ class PoseGame:
         feedback_lines = self.pose_feedback_text.split("\n")
         feedback_font = self.font_large
 
-        y_offset = int(self.height * 0.35)
+        y_offset = int(self.height * 0.40)
 
 
         for i, line in enumerate(feedback_lines[:4]):
