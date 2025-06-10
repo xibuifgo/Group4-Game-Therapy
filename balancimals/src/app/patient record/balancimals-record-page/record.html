@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Patient Record - Balancimals</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f4; }
+    header { background: #2c2c54; padding: 1em; color: white; display: flex; justify-content: space-between; align-items: center; }
+    .container { max-width: 1200px; margin: auto; padding: 2em; background: white; }
+    .patient-info, .focus-area, .charts, .summary, .footer { margin-bottom: 2em; }
+    .patient-info img { border-radius: 50%; width: 100px; }
+    .info-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 1em; align-items: center; }
+    .box { border: 1px solid #ccc; padding: 1em; border-radius: 8px; background: #f9f9f9; }
+    table { width: 100%; border-collapse: collapse; }
+    table, th, td { border: 1px solid #ccc; }
+    th, td { padding: 0.5em; text-align: left; }
+    .summary-results { overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <header>
+    <div><img src="balancimals-logo.png" alt="Balancimals Logo" height="40"></div>
+    <div>
+      <strong>Hi, Dr Peters</strong> | <a href="#" style="color:white;">Sign Out</a>
+    </div>
+  </header>
+
+  <div class="container">
+    <section class="patient-info box">
+      <div class="info-grid">
+        <img src="john-doe.jpg" alt="Patient Photo">
+        <div>
+          <h2>John Doe</h2>
+          <p>DOB: 4/6/2019 | Age: 6 | Gender: Male</p>
+          <p>Email: jd@gmail.com | Phone: +44 837257305</p>
+          <button>Edit Info</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="focus-area box">
+      <h3>Area of Focus: <span style="color:red">Knee (Left)</span></h3>
+      <p>Week 3 | Flexion: 22 | Extension: 12</p>
+      <p>Next Appointment: 20/7/2025</p>
+    </section>
+
+    <section class="charts box">
+      <h3>Range of Motion</h3>
+      <img src="chart-placeholder.png" alt="Motion Chart" style="width:100%; height:auto;">
+    </section>
+
+    <section class="summary box">
+      <h3>Summary Results</h3>
+      <div class="summary-results">
+        <h4>Final Results</h4>
+        <table>
+          <thead>
+            <tr><th>Test</th><th>Performed Effect Observed</th><th>Score</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Balance Test</td><td>Improved stability</td><td>85%</td></tr>
+            <tr><td>Reaction Game</td><td>Faster response</td><td>75%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="summary-results">
+        <h4>Pain Ratings</h4>
+        <table>
+          <thead>
+            <tr><th>Area</th><th>Rating</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Knee</td><td>3</td></tr>
+            <tr><td>Ankle</td><td>1</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <footer class="footer" style="background:#2c2c54; color:white; text-align:center; padding:1em;">
+    <p>&copy; 2025 Balancimals. All rights reserved.</p>
+  </footer>
+</body>
+</html>
