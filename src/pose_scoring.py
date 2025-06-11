@@ -65,6 +65,17 @@ class PoseScorer:
         gz = max(-1, min(1, gz / 131))
 
         return {"AcX": ax, "AcY": ay, "AcZ": az, "GyX": gx, "GyY": gy, "GyZ": gz}
+    
+    def get_max_acceleration(self):
+        try:
+            ax_vals = data_temp.vals["AcX"][-30:]
+            ay_vals = data_temp.vals["AcY"][-30:]
+            az_vals = data_temp.vals["AcZ"][-30:]
+            magnitudes = [math.sqrt(ax**2 + ay**2 + az**2) for ax, ay, az in zip(ax_vals, ay_vals, az_vals)]
+            return max(magnitudes)
+        except Exception as e:
+            print(f"[ERROR] max accel calculation failed: {e}")
+            return float('inf')  # Treat error as very unstable
 
     def smooth_readings(self, new_reading):
         self.readings_history.append(new_reading)
