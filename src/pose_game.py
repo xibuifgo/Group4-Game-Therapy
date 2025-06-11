@@ -21,7 +21,7 @@ except ImportError as e:
     print("Falling back to accelerometer data")
     POSE_DETECTION_AVAILABLE = False
 
-DEV_MODE = True     
+DEV_MODE = False     
 
 class PoseGame:
     def __init__(self, window, clock):
@@ -135,6 +135,7 @@ class PoseGame:
         try:
             self.tts_engine = pyttsx3.init()
             self.tts_enabled = True
+            self.tts_engine.setProperty('volume', 1.0)  # Max TTS volume (0.0 to 1.0)
         except Exception as e:
             print("TTS init failed:", e)
             self.tts_enabled = False
@@ -192,6 +193,7 @@ class PoseGame:
         # fade out old music
         pygame.mixer.music.fadeout(fade_ms)
         # load & play the new track
+        pygame.mixer.music.set_volume(0.3)  # 0.0 = mute, 1.0 = max volume
         pygame.mixer.music.load(self.music_files[key])
         pygame.mixer.music.play(loop, fade_ms=fade_ms)
         self.current_music = key
