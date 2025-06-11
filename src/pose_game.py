@@ -21,7 +21,7 @@ except ImportError as e:
     print("Falling back to accelerometer data")
     POSE_DETECTION_AVAILABLE = False
 
-DEV_MODE = True
+DEV_MODE = False
 
 class PoseGame:
     def __init__(self, window, clock):
@@ -60,12 +60,12 @@ class PoseGame:
         self.pose_raise_start_time = None
 
         self.pose_score_thresholds = {
-            0: {"good": 80, "moderate": 50},  # Normal Standing Stance
-            1: {"good": 75, "moderate": 45},  # Star Pose
-            2: {"good": 78, "moderate": 48},  # Tandem
-            3: {"good": 82, "moderate": 52},  # Heel Raise
-            4: {"good": 85, "moderate": 55},  # Flamingo Left
-            5: {"good": 85, "moderate": 55}   # Flamingo Right
+            0: {"good": 0.6, "moderate": 3.0},  # Normal Standing Stance
+            1: {"good": 0.7, "moderate": 6.0},  # Star Pose
+            2: {"good": 1.0, "moderate": 9.0},  # Tandem
+            3: {"good": 1.1, "moderate": 10.0},  # Heel Raise
+            4: {"good": 1.6, "moderate": 12.0},  # Flamingo Left
+            5: {"good": 1.6, "moderate": 12.0}   # Flamingo Right
         }
 
 
@@ -278,9 +278,20 @@ class PoseGame:
         try:
             from pose_scoring import PoseScorer
             scorer = PoseScorer()
-            sensor_score = scorer.calculate_score(self.current_pose_index)
+            max_accel = scorer.get_max_acceleration()
+            thresholds = self.sensor_thresholds.get(self.current_pose_index, {"good": 1.5, "moderate": 2.5})
+
+            # Lower acceleration = better score
+            if max_accel <= thresholds["good"]:
+                sensor_score = 100
+            elif max_accel <= thresholds["moderate"]:
+                sensor_score = 65
+            else:
+                sensor_score = 30
+
         except Exception as e:
             print(f"[ERROR] Sensor scoring failed: {e}")
+            sensor_score = 50
 
         # Weighted average: 70% camera + 30% sensor (you can adjust this)
         final_score = 0.7 * camera_score + 0.3 * sensor_score
