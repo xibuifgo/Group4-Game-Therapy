@@ -1,10 +1,16 @@
 import pygame
 import sys
-import data_real
 from constants import WIDTH, HEIGHT, FPS, WHITE, window, clock
 from pose_game import PoseGame
 
-data_real.start_data_thread()
+USE_ELECTRONICS  = False
+
+if USE_ELECTRONICS:
+    import data_real as sensor_data
+else:
+    import data_temp as sensor_data
+
+sensor_data.start_data_thread()
 
 def main():
     running = True

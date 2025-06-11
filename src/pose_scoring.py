@@ -1,7 +1,12 @@
 import math
 import numpy as np
-import data_real
 from pose_templates import PoseTemplates
+USE_ELECTRONICS = False  # Toggle this to False when you don't have the kit
+
+if USE_ELECTRONICS:
+    import data_real as sensor_data
+else:
+    import data_temp as sensor_data
 
 class PoseScorer:
     def __init__(self):
@@ -50,12 +55,12 @@ class PoseScorer:
         self.readings_history = []
 
     def get_normalized_sensor_data(self):
-        ax = data_real.vals["AcX"][-1] if data_real.vals["AcX"] else 0
-        ay = data_real.vals["AcY"][-1] if data_real.vals["AcY"] else 0
-        az = data_real.vals["AcZ"][-1] if data_real.vals["AcZ"] else 0
-        gx = data_real.vals["GyX"][-1] if data_real.vals["GyX"] else 0
-        gy = data_real.vals["GyY"][-1] if data_real.vals["GyY"] else 0
-        gz = data_real.vals["GyZ"][-1] if data_real.vals["GyZ"] else 0
+        ax = sensor_data.vals["AcX"][-1] if sensor_data.vals["AcX"] else 0
+        ay = sensor_data.vals["AcY"][-1] if sensor_data.vals["AcY"] else 0
+        az = sensor_data.vals["AcZ"][-1] if sensor_data.vals["AcZ"] else 0
+        gx = sensor_data.vals["GyX"][-1] if sensor_data.vals["GyX"] else 0
+        gy = sensor_data.vals["GyY"][-1] if sensor_data.vals["GyY"] else 0
+        gz = sensor_data.vals["GyZ"][-1] if sensor_data.vals["GyZ"] else 0
 
         ax = max(-1, min(1, ax / 16384))
         ay = max(-1, min(1, ay / 16384))
@@ -68,9 +73,9 @@ class PoseScorer:
     
     def get_max_acceleration(self):
         try:
-            ax_vals = data_temp.vals["AcX"][-30:]
-            ay_vals = data_temp.vals["AcY"][-30:]
-            az_vals = data_temp.vals["AcZ"][-30:]
+            ax_vals = data_real.vals["AcX"][-30:]
+            ay_vals = data_real.vals["AcY"][-30:]
+            az_vals = data_real.vals["AcZ"][-30:]
             magnitudes = [math.sqrt(ax**2 + ay**2 + az**2) for ax, ay, az in zip(ax_vals, ay_vals, az_vals)]
             return max(magnitudes)
         except Exception as e:

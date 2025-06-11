@@ -1,7 +1,6 @@
 import pygame
 import sys
 import random
-import data_real
 import time
 import math
 from pose_loader import load_poses
@@ -21,7 +20,8 @@ except ImportError as e:
     print("Falling back to accelerometer data")
     POSE_DETECTION_AVAILABLE = False
 
-DEV_MODE = False     
+
+
 
 class PoseGame:
     def __init__(self, window, clock):
@@ -118,7 +118,6 @@ class PoseGame:
         logo_height = int(logo_width * self.logo_image.get_height() / self.logo_image.get_width())
         self.logo_image = pygame.transform.scale(self.logo_image, (logo_width, logo_height))
 
-
         # State variables
         self.mock_activity_level = 0
         self.camera_surface = None
@@ -149,7 +148,6 @@ class PoseGame:
             "pose": "assets/music/pose.mp3"
         }
         self.current_music = None
-
 
         # Flags to avoid repeating speech
         self.preview_spoken = False
@@ -201,7 +199,7 @@ class PoseGame:
     
     def create_feedback_image(self, feedback_type):
         """Create visual feedback images"""
-        image = pygame.Surface((200, 200))
+        image =  pygame.Surface((200, 200))
         if feedback_type == "success":
             image.fill((0, 200, 0))
             # Draw checkmark
@@ -301,7 +299,8 @@ class PoseGame:
 
 
     def calculate_pose_score_from_camera(self):
-        """Calculate pose score using camera-based pose detection"""
+        """Calcula
+        te pose score using camera-based pose detection"""
         try:
             # Get camera frame and landmarks
             frame, landmarks = self.pose_detector.get_camera_frame()
@@ -372,12 +371,12 @@ class PoseGame:
         """Fallback scoring using accelerometer data simulation"""
         try:
             # Get sensor data (simulated)
-            ax = data_real.vals["AcX"][-1] if data_real.vals["AcX"] else 0
-            ay = data_real.vals["AcY"][-1] if data_real.vals["AcY"] else 0
-            az = data_real.vals["AcZ"][-1] if data_real.vals["AcZ"] else 0
-            gx = data_real.vals["GyX"][-1] if data_real.vals["GyX"] else 0
-            gy = data_real.vals["GyY"][-1] if data_real.vals["GyY"] else 0
-            gz = data_real.vals["GyZ"][-1] if data_real.vals["GyZ"] else 0
+            ax = sensor_data.vals["AcX"][-1] if sensor_data.vals["AcX"] else 0
+            ay = sensor_data.vals["AcY"][-1] if sensor_data.vals["AcY"] else 0
+            az = sensor_data.vals["AcZ"][-1] if sensor_data.vals["AcZ"] else 0
+            gx = sensor_data.vals["GyX"][-1] if sensor_data.vals["GyX"] else 0
+            gy = sensor_data.vals["GyY"][-1] if sensor_data.vals["GyY"] else 0
+            gz = sensor_data.vals["GyZ"][-1] if sensor_data.vals["GyZ"] else 0
 
             # Calculate activity level
             sensor_activity = math.sqrt(ax**2 + ay**2 + az**2 + gx**2 + gy**2 + gz**2)
