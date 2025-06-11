@@ -1,7 +1,7 @@
 import pygame
 import sys
 import random
-import data_temp
+import data_real
 import time
 import math
 from pose_loader import load_poses
@@ -21,7 +21,7 @@ except ImportError as e:
     print("Falling back to accelerometer data")
     POSE_DETECTION_AVAILABLE = False
 
-DEV_MODE = False
+DEV_MODE = True     
 
 class PoseGame:
     def __init__(self, window, clock):
@@ -294,7 +294,7 @@ class PoseGame:
             sensor_score = 50
 
         # Weighted average: 70% camera + 30% sensor (you can adjust this)
-        final_score = 0.7 * camera_score + 0.3 * sensor_score
+        final_score = 0.2 * camera_score + 0.8 * sensor_score
         return final_score
 
 
@@ -346,64 +346,64 @@ class PoseGame:
 
         threading.Thread(target=_worker, args=(text, delay), daemon=True).start()
 
-    def calculate_pose_score_from_accelerometer(self):
-        """Override scoring with phase-based cycling for animation testing"""
-        elapsed = time.time() - self.start_time
-        phase = int(elapsed // 3) % 3
-
-        if phase == 0:
-            score = 85  # sleeping
-            self.pose_feedback_text = "🛌 Sleeping (score 85)"
-        elif phase == 1:
-            score = 65  # waking
-            self.pose_feedback_text = "👀 Waking (score 65)"
-        else:
-            score = 30  # angry
-            self.pose_feedback_text = "😠 Angry (score 30)"
-
-        print(f"[DEBUG] Phase: {phase}, Forced Score: {score}")
-        return score
-
-
-
     # def calculate_pose_score_from_accelerometer(self):
-    #     """Fallback scoring using accelerometer data simulation"""
-    #     try:
-    #         # Get sensor data (simulated)
-    #         ax = data_temp.vals["AcX"][-1] if data_temp.vals["AcX"] else 0
-    #         ay = data_temp.vals["AcY"][-1] if data_temp.vals["AcY"] else 0
-    #         az = data_temp.vals["AcZ"][-1] if data_temp.vals["AcZ"] else 0
-    #         gx = data_temp.vals["GyX"][-1] if data_temp.vals["GyX"] else 0
-    #         gy = data_temp.vals["GyY"][-1] if data_temp.vals["GyY"] else 0
-    #         gz = data_temp.vals["GyZ"][-1] if data_temp.vals["GyZ"] else 0
+    #     """Override scoring with phase-based cycling for animation testing"""
+    #     elapsed = time.time() - self.start_time
+    #     phase = int(elapsed // 3) % 3
 
-    #         # Calculate activity level
-    #         sensor_activity = math.sqrt(ax**2 + ay**2 + az**2 + gx**2 + gy**2 + gz**2)
-    #         elapsed = time.time() - self.start_time
+    #     if phase == 0:
+    #         score = 85  # sleeping
+    #         self.pose_feedback_text = "🛌 Sleeping (score 85)"
+    #     elif phase == 1:
+    #         score = 65  # waking
+    #         self.pose_feedback_text = "👀 Waking (score 65)"
+    #     else:
+    #         score = 30  # angry
+    #         self.pose_feedback_text = "😠 Angry (score 30)"
+
+    #     print(f"[DEBUG] Phase: {phase}, Forced Score: {score}")
+    #     return score
+
+
+
+    def calculate_pose_score_from_accelerometer(self):
+        """Fallback scoring using accelerometer data simulation"""
+        try:
+            # Get sensor data (simulated)
+            ax = data_real.vals["AcX"][-1] if data_real.vals["AcX"] else 0
+            ay = data_real.vals["AcY"][-1] if data_real.vals["AcY"] else 0
+            az = data_real.vals["AcZ"][-1] if data_real.vals["AcZ"] else 0
+            gx = data_real.vals["GyX"][-1] if data_real.vals["GyX"] else 0
+            gy = data_real.vals["GyY"][-1] if data_real.vals["GyY"] else 0
+            gz = data_real.vals["GyZ"][-1] if data_real.vals["GyZ"] else 0
+
+            # Calculate activity level
+            sensor_activity = math.sqrt(ax**2 + ay**2 + az**2 + gx**2 + gy**2 + gz**2)
+            elapsed = time.time() - self.start_time
             
-    #         # Basic scoring algorithm
-    #         base_score = 60 + (self.current_pose_index * 5)
-    #         activity_factor = min(30, sensor_activity * 30)
-    #         time_factor = min(15, elapsed * 1.5)
+            # Basic scoring algorithm
+            base_score = 60 + (self.current_pose_index * 5)
+            activity_factor = min(30, sensor_activity * 30)
+            time_factor = min(15, elapsed * 1.5)
             
-    #         score = base_score + activity_factor + time_factor + random.uniform(-15, 15)
-    #         score = min(100, max(0, score))
+            score = base_score + activity_factor + time_factor + random.uniform(-15, 15)
+            score = min(100, max(0, score))
             
-    #         # Update feedback
-    #         if score >= self.score_threshold:
-    #             self.pose_feedback_text = "Good pose detected!"
-    #         else:
-    #             self.pose_feedback_text = "Keep adjusting your pose"
+            # Update feedback
+            if score >= self.score_threshold:
+                self.pose_feedback_text = "Good pose detected!"
+            else:
+                self.pose_feedback_text = "Keep adjusting your pose"
             
-    #         # Debug output
-    #         if int(elapsed) % 2 == 0:
-    #             print(f"Pose {self.current_pose_index+1} Score: {score:.1f} (base:{base_score} + activity:{activity_factor:.1f} + time:{time_factor:.1f})")
+            # Debug output
+            if int(elapsed) % 2 == 0:
+                print(f"Pose {self.current_pose_index+1} Score: {score:.1f} (base:{base_score} + activity:{activity_factor:.1f} + time:{time_factor:.1f})")
             
-    #         return score
+            return score
             
-    #     except Exception as e:
-    #         print(f"Error in accelerometer scoring: {e}")
-    #         return 0
+        except Exception as e:
+            print(f"Error in accelerometer scoring: {e}")
+            return 0
 
     def update(self):
         """Update game state"""

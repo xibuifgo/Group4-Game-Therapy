@@ -20,15 +20,19 @@ def connect():
     ports = serial.tools.list_ports.comports()
     available = [port.device for port in ports]
 
+
+
     if not available:
         raise serial.SerialException("No serial ports found.")
 
-    for port in available:
+    for port in ports:
         try:
-            ser = serial.Serial(port, 115200, timeout=0.2)
-            time.sleep(2)  # Give the ESP32 time to reset
-            print(f"[INFO] Connected to {port}")
-            return ser
+            if port.vid != None:
+                ser = serial.Serial(port.device, 115200, timeout=0.2)
+                time.sleep(2)  # Give the ESP32 time to reset
+                print(f"[INFO] Connected to {port}")
+                return ser
+            raise serial.SerialException("No available USB ports")
         except Exception as e:
             print(f"[WARNING] Could not open {port}: {e}")
 

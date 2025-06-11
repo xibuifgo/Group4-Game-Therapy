@@ -1,10 +1,10 @@
 import pygame
 import sys
-import data_temp
+import data_real
 from constants import WIDTH, HEIGHT, FPS, WHITE, window, clock
 from pose_game import PoseGame
 
-data_temp.start_data_thread()
+data_real.start_data_thread()
 
 def main():
     running = True
