@@ -12,7 +12,7 @@ if USE_ELECTRONICS:
 else:
     import data_temp as sensor_data
 
-DEV_MODE = True
+DEV_MODE = False
 
 
 # Try to import pose detection - fallback to mock data if not available
@@ -137,6 +137,8 @@ class PoseGame:
         self.current_music = None
 
         # Flags to avoid repeating speech
+        self.imu_spoken        = False         # said on IMU screen
+        self.bear_intro_spoken = False         # said once, after preview
         self.preview_spoken = False
         self.pose_intro_spoken = False
         self.arms_instruction_spoken = False
@@ -159,6 +161,12 @@ class PoseGame:
         self.password_rect = pygame.Rect(margin,
                                         start_y + int(self.height * 0.12),
                                         box_width, box_height)
+        
+        self.imu_image = pygame.image.load("assets/images/boy_with_accelerometer.png").convert_alpha()          # <<< NEW
+        imu_w = int(self.width * 0.35)                             # <<< NEW
+        imu_h = int(imu_w * self.imu_image.get_height() /
+                            self.imu_image.get_width())           # <<< NEW
+        self.imu_image = pygame.transform.scale(self.imu_image, (imu_w, imu_h))
 
     def draw_text_with_outline(self, surface, text, font, x, y, text_color, outline_color=(0, 0, 0), outline_width=2):
         # Draw outline
@@ -200,30 +208,6 @@ class PoseGame:
         pygame.mixer.music.load(self.music_files[key])
         pygame.mixer.music.play(loop, fade_ms=fade_ms)
         self.current_music = key
-
-    def draw_login_fields(self):
-        # Labels
-        lbl_email = self.font.render("Email:",    True, (246,203,102))
-        lbl_pw    = self.font.render("Password:", True, (246,203,102))
-        self.window.blit(lbl_email,
-                        (self.email_rect.x,
-                        self.email_rect.y - lbl_email.get_height() - 4))
-        self.window.blit(lbl_pw,
-                        (self.password_rect.x,
-                        self.password_rect.y - lbl_pw.get_height() - 4))
-
-        # Boxes (highlight if focused)
-        for key, rect in (("email", self.email_rect),
-                        ("password", self.password_rect)):
-            clr = (158,209,242) if self.active_input == key else (46,15,0)
-            pygame.draw.rect(self.window, clr, rect, width=3, border_radius=6)
-
-        # Text inside
-        email_surf = self.font.render(self.email, True, (246,203,102))
-        pw_surf    = self.font.render("*" * len(self.password), True, (246,203,102))
-        self.window.blit(email_surf, (self.email_rect.x + 6, self.email_rect.y + 6))
-        self.window.blit(pw_surf,    (self.password_rect.x + 6, self.password_rect.y + 6))
-
     
     def create_feedback_image(self, feedback_type):
         """Create visual feedback images"""
@@ -255,7 +239,7 @@ class PoseGame:
             self.phase = "full"
             self.start_new_pose()
         else:
-            self.phase = "preview"
+            self.phase = "imu_setup"
         self.ready_confirmed = False  
 
     def draw_ready_circle(self, center, radius, duration, start_time):
@@ -278,82 +262,6 @@ class PoseGame:
         if len(points) > 2:
             pygame.draw.polygon(self.window, (246, 203, 102), points)
             
-    def start_new_pose(self):
-        """Start a new pose challenge"""
-        if self.current_pose_index >= len(self.poses):
-            self.game_over = True
-            return
-
-        self.current_pose = self.poses[self.current_pose_index]
-        self.phase = "full"
-        self.start_time = time.time()
-        self.current_score = 0
-        self.pose_feedback_text = ""
-        
-        # Reset speech flags for this pose
-        self.pose_intro_spoken = False
-        self.arms_instruction_spoken = False
-
-    def calculate_pose_score(self):
-        """Blend camera-similarity and IMU stability into one 0-100 score."""
-        camera_score  = 0.0
-        sensor_score  = 0.0
-
-        # 1. Camera – only if pose detection is active
-        if self.use_pose_detection and self.pose_detector:
-            camera_score = self.calculate_pose_score_from_camera()
-
-        # 2. IMU – handled by PoseScorer (per-pose thresholds baked in)
-        try:
-            from pose_scoring import PoseScorer
-            sensor_score = PoseScorer().sensor_score(self.current_pose_index)
-        except Exception as e:
-            print(f"[PoseGame] sensor scoring failed: {e}")
-            sensor_score = 50.0          # neutral fallback
-
-        # 3. Weighted blend  (70 % camera, 30 % sensor – tweak to taste)
-        return 0.7 * camera_score + 0.3 * sensor_score
-
-
-
-    def calculate_pose_score_from_camera(self):
-        """Calcula
-        te pose score using camera-based pose detection"""
-        try:
-            # Get camera frame and landmarks
-            frame, landmarks = self.pose_detector.get_camera_frame()
-            
-            # Update camera surface for display
-            if frame is not None:
-                self.camera_surface = self.pose_detector.frame_to_pygame_surface(frame)
-                self.camera_surface = pygame.transform.scale(self.camera_surface, (320, 240))
-            
-            # Check if pose is detected
-            if landmarks is None:
-                self.pose_feedback_text = "No pose detected"
-                return 0
-            
-            # Get pose angles
-            angles = self.pose_detector.get_pose_angles(landmarks)
-            if angles is None:
-                self.pose_feedback_text = "Could not calculate pose angles"
-                return 0
-            
-            # Calculate similarity score
-            score = self.pose_templates.calculate_pose_similarity(angles, self.current_pose_index)
-            
-            # Get detailed feedback
-            self.pose_feedback_text = self.pose_templates.get_pose_feedback(angles, self.current_pose_index)
-            
-            # Store landmarks for stability checking
-            self.previous_landmarks = landmarks
-            
-            return score
-            
-        except Exception as e:
-            print(f"Error in camera pose detection: {e}")
-            self.pose_feedback_text = f"Detection error: {str(e)[:50]}"
-            return 0
         
     def speak_text(self, text, delay: float = 0.0):
         if not self.tts_enabled: return
@@ -364,65 +272,6 @@ class PoseGame:
             self.tts_engine.runAndWait()
 
         threading.Thread(target=_worker, args=(text, delay), daemon=True).start()
-
-    # def calculate_pose_score_from_accelerometer(self):
-    #     """Override scoring with phase-based cycling for animation testing"""
-    #     elapsed = time.time() - self.start_time
-    #     phase = int(elapsed // 3) % 3
-
-    #     if phase == 0:
-    #         score = 85  # sleeping
-    #         self.pose_feedback_text = "🛌 Sleeping (score 85)"
-    #     elif phase == 1:
-    #         score = 65  # waking
-    #         self.pose_feedback_text = "👀 Waking (score 65)"
-    #     else:
-    #         score = 30  # angry
-    #         self.pose_feedback_text = "😠 Angry (score 30)"
-
-    #     print(f"[DEBUG] Phase: {phase}, Forced Score: {score}")
-    #     return score
-
-
-
-    # def calculate_pose_score_from_accelerometer(self):
-    #     """Fallback scoring using accelerometer data simulation"""
-    #     try:
-    #         # Get sensor data (simulated)
-    #         ax = sensor_data.vals["AcX"][-1] if sensor_data.vals["AcX"] else 0
-    #         ay = sensor_data.vals["AcY"][-1] if sensor_data.vals["AcY"] else 0
-    #         az = sensor_data.vals["AcZ"][-1] if sensor_data.vals["AcZ"] else 0
-    #         gx = sensor_data.vals["GyX"][-1] if sensor_data.vals["GyX"] else 0
-    #         gy = sensor_data.vals["GyY"][-1] if sensor_data.vals["GyY"] else 0
-    #         gz = sensor_data.vals["GyZ"][-1] if sensor_data.vals["GyZ"] else 0
-
-    #         # Calculate activity level
-    #         sensor_activity = math.sqrt(ax**2 + ay**2 + az**2 + gx**2 + gy**2 + gz**2)
-    #         elapsed = time.time() - self.start_time
-            
-    #         # Basic scoring algorithm
-    #         base_score = 60 + (self.current_pose_index * 5)
-    #         activity_factor = min(30, sensor_activity * 30)
-    #         time_factor = min(15, elapsed * 1.5)
-            
-    #         score = base_score + activity_factor + time_factor + random.uniform(-15, 15)
-    #         score = min(100, max(0, score))
-            
-    #         # Update feedback
-    #         if score >= self.score_threshold:
-    #             self.pose_feedback_text = "Good pose detected!"
-    #         else:
-    #             self.pose_feedback_text = "Keep adjusting your pose"
-            
-    #         # Debug output
-    #         if int(elapsed) % 2 == 0:
-    #             print(f"Pose {self.current_pose_index+1} Score: {score:.1f} (base:{base_score} + activity:{activity_factor:.1f} + time:{time_factor:.1f})")
-            
-    #         return score
-            
-    #     except Exception as e:
-    #         print(f"Error in accelerometer scoring: {e}")
-    #         return 0
 
     def update(self):
         """Advance game state; run once per frame."""
@@ -548,7 +397,9 @@ class PoseGame:
     def draw(self):
         """Render the game"""
         self.window.blit(self.background_image, (0, 0))
-        
+        if self.phase == "imu_setup":                   # <<< NEW
+            self.draw_imu_setup_screen()               # <<< NEW
+            return    
         if not self.game_active:
             self.draw_start_screen()
         elif self.phase == "preview":
@@ -557,6 +408,66 @@ class PoseGame:
             self.draw_game_over_screen()
         else:
             self.draw_game_screen()
+
+    def draw_login_fields(self):
+        # Labels
+        lbl_email = self.font.render("Email:",    True, (246,203,102))
+        lbl_pw    = self.font.render("Password:", True, (246,203,102))
+        self.window.blit(lbl_email,
+                        (self.email_rect.x,
+                        self.email_rect.y - lbl_email.get_height() - 4))
+        self.window.blit(lbl_pw,
+                        (self.password_rect.x,
+                        self.password_rect.y - lbl_pw.get_height() - 4))
+
+        # Boxes (highlight if focused)
+        for key, rect in (("email", self.email_rect),
+                        ("password", self.password_rect)):
+            clr = (158,209,242) if self.active_input == key else (46,15,0)
+            pygame.draw.rect(self.window, clr, rect, width=3, border_radius=6)
+
+        # Text inside
+        email_surf = self.font.render(self.email, True, (246,203,102))
+        pw_surf    = self.font.render("*" * len(self.password), True, (246,203,102))
+        self.window.blit(email_surf, (self.email_rect.x + 6, self.email_rect.y + 6))
+        self.window.blit(pw_surf,    (self.password_rect.x + 6, self.password_rect.y + 6))            
+
+    def draw_start_screen(self):
+        self.play_music("start")
+        # Show background and title
+        self.window.blit(self.background_image, (0, 0))
+        logo_rect = self.logo_image.get_rect(center=(self.width // 2, self.height // 2 - 150))
+        self.window.blit(self.logo_image, logo_rect)
+
+        # Button
+        self.window.blit(self.start_button_images[self.start_button_state], self.start_button_rect)
+
+        # Instruction text
+        instruction = self.font.render("Balance training made fun!", True, (246, 203, 102))
+        self.window.blit(instruction, (self.width//2 - instruction.get_width()//2, self.height//2 + 200))
+
+        self.draw_login_fields()            
+
+    def draw_imu_setup_screen(self):  
+        self.play_music("setup")
+        self.window.blit(self.background_image, (0, 0))
+
+        # centre the picture
+        rect = self.imu_image.get_rect(center=(self.width // 2,
+                                            self.height // 2 - 60))
+        self.window.blit(self.imu_image, rect)
+
+        # caption
+        line = "Wear your Balancify belt with the box on your lower back!"
+        x = self.width // 2 - self.font_large.size(line)[0] // 2
+        y = rect.bottom + int(self.height * 0.04)
+        self.draw_text_with_outline(self.window, line, self.font_large, x, y, (246, 203, 102))
+
+        # speak once
+        if not self.imu_spoken:
+            self.speak_text(line)
+            self.imu_spoken = True
+
 
     def draw_preview_screen(self):
         self.play_music("setup")
@@ -602,21 +513,88 @@ class PoseGame:
             center = (45, self.height - 45)
             self.draw_ready_circle(center, 40, 3, self.preview_raise_start_time)
 
-    def draw_start_screen(self):
-        self.play_music("start")
-        # Show background and title
-        self.window.blit(self.background_image, (0, 0))
-        logo_rect = self.logo_image.get_rect(center=(self.width // 2, self.height // 2 - 150))
-        self.window.blit(self.logo_image, logo_rect)
+    def start_new_pose(self):
+        """Start a new pose challenge"""
+        if self.current_pose_index >= len(self.poses):
+            self.game_over = True
+            return
 
-        # Button
-        self.window.blit(self.start_button_images[self.start_button_state], self.start_button_rect)
+        self.current_pose = self.poses[self.current_pose_index]
+        self.phase = "full"
+        # One-time intro, right after camera setup is done
+        if not self.bear_intro_spoken:
+            self.speak_text("You will be shown a pose on the screen. "
+                            "Hold as still as you can so you don't wake "
+                            "the angry bear.")
+            self.bear_intro_spoken = True
+        self.start_time = time.time()
+        self.current_score = 0
+        self.pose_feedback_text = ""
+        
+        # Reset speech flags for this pose
+        self.pose_intro_spoken = False
+        self.arms_instruction_spoken = False
 
-        # Instruction text
-        instruction = self.font.render("Balance training made fun!", True, (246, 203, 102))
-        self.window.blit(instruction, (self.width//2 - instruction.get_width()//2, self.height//2 + 200))
+    def calculate_pose_score(self):
+        """Blend camera-similarity and IMU stability into one 0-100 score."""
+        camera_score  = 0.0
+        sensor_score  = 0.0
 
-        self.draw_login_fields()
+        # 1. Camera – only if pose detection is active
+        if self.use_pose_detection and self.pose_detector:
+            camera_score = self.calculate_pose_score_from_camera()
+
+        # 2. IMU – handled by PoseScorer (per-pose thresholds baked in)
+        try:
+            from pose_scoring import PoseScorer
+            sensor_score = PoseScorer().sensor_score(self.current_pose_index)
+        except Exception as e:
+            print(f"[PoseGame] sensor scoring failed: {e}")
+            sensor_score = 50.0          # neutral fallback
+
+        # 3. Weighted blend  (70 % camera, 30 % sensor – tweak to taste)
+        return 0.7 * camera_score + 0.3 * sensor_score
+
+
+    def calculate_pose_score_from_camera(self):
+        """Calcula
+        te pose score using camera-based pose detection"""
+        try:
+            # Get camera frame and landmarks
+            frame, landmarks = self.pose_detector.get_camera_frame()
+            
+            # Update camera surface for display
+            if frame is not None:
+                self.camera_surface = self.pose_detector.frame_to_pygame_surface(frame)
+                self.camera_surface = pygame.transform.scale(self.camera_surface, (320, 240))
+            
+            # Check if pose is detected
+            if landmarks is None:
+                self.pose_feedback_text = "No pose detected"
+                return 0
+            
+            # Get pose angles
+            angles = self.pose_detector.get_pose_angles(landmarks)
+            if angles is None:
+                self.pose_feedback_text = "Could not calculate pose angles"
+                return 0
+            
+            # Calculate similarity score
+            score = self.pose_templates.calculate_pose_similarity(angles, self.current_pose_index)
+            
+            # Get detailed feedback
+            self.pose_feedback_text = self.pose_templates.get_pose_feedback(angles, self.current_pose_index)
+            
+            # Store landmarks for stability checking
+            self.previous_landmarks = landmarks
+            
+            return score
+            
+        except Exception as e:
+            print(f"Error in camera pose detection: {e}")
+            self.pose_feedback_text = f"Detection error: {str(e)[:50]}"
+            return 0
+
 
     def draw_game_over_screen(self):
         """Draw game over screen"""
@@ -826,6 +804,11 @@ class PoseGame:
             # ──────────────────────────────────────────────────────────────
             #  LOGIN TEXTBOX INTERACTION  (only visible on the start screen)
             # ──────────────────────────────────────────────────────────────
+            # ── click anywhere on the IMU screen to continue ────────────
+            if self.phase == "imu_setup":
+                if event.type == pygame.MOUSEBUTTONUP:
+                    self.phase = "preview" 
+                    return                                     # stop processing this frame
             if not self.game_active:
                 # ✦ Click to focus an input box
                 if event.type == pygame.MOUSEBUTTONDOWN:
