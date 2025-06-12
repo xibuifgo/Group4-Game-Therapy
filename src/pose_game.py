@@ -7,6 +7,14 @@ from pose_loader import load_poses
 from bear_animator import BearAnimator
 import threading
 import pyttsx3
+USE_ELECTRONICS = False  # Toggle this to False when you don't have the kit
+
+if USE_ELECTRONICS:
+    import data_real as sensor_data
+else:
+    import data_temp as sensor_data
+
+DEV_MODE = True
 
 
 # Try to import pose detection - fallback to mock data if not available
@@ -153,7 +161,25 @@ class PoseGame:
         self.preview_spoken = False
         self.pose_intro_spoken = False
         self.arms_instruction_spoken = False
+        
+        # ── LOGIN ──────────────────────────────────────────────────────────
+        self.email        = ""          # what the player has typed
+        self.password     = ""
+        self.active_input = None        # "email", "password" or None
 
+        # Geometry for the two input boxes (right-hand column)
+        margin      = int(self.width * 0.05)
+        box_width   = int(self.width * 0.28)
+        box_height  = int(self.height * 0.06)
+        start_y     = int(self.height * 0.50)
+
+        self.email_rect    = pygame.Rect(margin,
+                                        start_y,
+                                        box_width, box_height)
+
+        self.password_rect = pygame.Rect(margin,
+                                        start_y + int(self.height * 0.12),
+                                        box_width, box_height)
 
     def draw_text_with_outline(self, surface, text, font, x, y, text_color, outline_color=(0, 0, 0), outline_width=2):
         # Draw outline
@@ -195,6 +221,29 @@ class PoseGame:
         pygame.mixer.music.load(self.music_files[key])
         pygame.mixer.music.play(loop, fade_ms=fade_ms)
         self.current_music = key
+
+    def draw_login_fields(self):
+        # Labels
+        lbl_email = self.font.render("Email:",    True, (246,203,102))
+        lbl_pw    = self.font.render("Password:", True, (246,203,102))
+        self.window.blit(lbl_email,
+                        (self.email_rect.x,
+                        self.email_rect.y - lbl_email.get_height() - 4))
+        self.window.blit(lbl_pw,
+                        (self.password_rect.x,
+                        self.password_rect.y - lbl_pw.get_height() - 4))
+
+        # Boxes (highlight if focused)
+        for key, rect in (("email", self.email_rect),
+                        ("password", self.password_rect)):
+            clr = (158,209,242) if self.active_input == key else (46,15,0)
+            pygame.draw.rect(self.window, clr, rect, width=3, border_radius=6)
+
+        # Text inside
+        email_surf = self.font.render(self.email, True, (246,203,102))
+        pw_surf    = self.font.render("*" * len(self.password), True, (246,203,102))
+        self.window.blit(email_surf, (self.email_rect.x + 6, self.email_rect.y + 6))
+        self.window.blit(pw_surf,    (self.password_rect.x + 6, self.password_rect.y + 6))
 
     
     def create_feedback_image(self, feedback_type):
@@ -279,7 +328,7 @@ class PoseGame:
             from pose_scoring import PoseScorer
             scorer = PoseScorer()
             max_accel = scorer.get_max_acceleration()
-            thresholds = self.sensor_thresholds.get(self.current_pose_index, {"good": 1.5, "moderate": 2.5})
+            thresholds = self.pose_score_thresholds.get(self.current_pose_index, {"good": 1.5, "moderate": 2.5})
 
             # Lower acceleration = better score
             if max_accel <= thresholds["good"]:
@@ -572,6 +621,8 @@ class PoseGame:
         instruction = self.font.render("Balance training made fun!", True, (246, 203, 102))
         self.window.blit(instruction, (self.width//2 - instruction.get_width()//2, self.height//2 + 200))
 
+        self.draw_login_fields()
+
     def draw_game_over_screen(self):
         """Draw game over screen"""
         # Game over text
@@ -772,28 +823,74 @@ class PoseGame:
         mouse_pos = pygame.mouse.get_pos()
         hovering = self.start_button_rect.collidepoint(mouse_pos)
 
+        # Hover state for the start button (only on start screen)
         if not self.game_active:
             self.start_button_state = "hover" if hovering else "default"
 
         for event in events:
+            # ──────────────────────────────────────────────────────────────
+            #  LOGIN TEXTBOX INTERACTION  (only visible on the start screen)
+            # ──────────────────────────────────────────────────────────────
+            if not self.game_active:
+                # ✦ Click to focus an input box
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if self.email_rect.collidepoint(event.pos):
+                        self.active_input = "email"
+                    elif self.password_rect.collidepoint(event.pos):
+                        self.active_input = "password"
+                    else:
+                        self.active_input = None
+
+                # ✦ Keyboard typing into whichever box is focused
+                elif event.type == pygame.KEYDOWN and self.active_input:
+                    if event.key == pygame.K_BACKSPACE:
+                        if self.active_input == "email":
+                            self.email = self.email[:-1]
+                        else:
+                            self.password = self.password[:-1]
+                    elif event.key == pygame.K_RETURN:
+                        # Hitting ⏎ acts the same as clicking the Start button
+                        hovering = True     # forces the Start-click block below
+                    else:
+                        char = event.unicode
+                        # printable ASCII only
+                        if char and len(char) == 1 and 32 <= ord(char) <= 126:
+                            if self.active_input == "email":
+                                self.email += char
+                            else:
+                                self.password += char
+
+            # ──────────────────────────────────────────────────────────────
+            #  EXISTING START-BUTTON LOGIC  (now guarded by login fields)
+            # ──────────────────────────────────────────────────────────────
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if hovering and not self.game_active:
                     self.start_button_state = "clicked"
 
             elif event.type == pygame.MOUSEBUTTONUP:
                 if hovering and not self.game_active:
-                    self.start_game()
+                    # Guard: only launch the game when both fields are non-empty
+                    if self.email and self.password:
+                        self.start_game()
+                    else:
+                        # (optional) flash a warning or play an error sound here
+                        pass
                     self.start_button_state = "default"
 
-            elif self.game_over:
-                button_width = int(self.width * 0.25)
+            # ──────────────────────────────────────────────────────────────
+            #  GAME-OVER  :  Restart button
+            # ──────────────────────────────────────────────────────────────
+            if self.game_over:
+                button_width  = int(self.width * 0.25)
                 button_height = int(self.height * 0.08)
-                button_x = self.width // 2 - button_width // 2
-                button_y = int(self.height * 0.7)
-                restart_button = pygame.Rect(button_x, button_y, button_width, button_height)
+                button_x      = self.width // 2 - button_width // 2
+                button_y      = int(self.height * 0.7)
+                restart_button = pygame.Rect(button_x, button_y,
+                                            button_width, button_height)
 
                 if event.type == pygame.MOUSEBUTTONDOWN and restart_button.collidepoint(mouse_pos):
                     self.start_game()
+
 
 
     def display(self):

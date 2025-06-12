@@ -25,7 +25,7 @@ def main():
                 running = False
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
                 pygame.display.toggle_fullscreen()
-
+        
         pose_game.handle_events(events)
         pose_game.display()
 
