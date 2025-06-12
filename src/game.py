@@ -3,7 +3,7 @@ import sys
 from constants import WIDTH, HEIGHT, FPS, WHITE, window, clock
 from pose_game import PoseGame
 
-USE_ELECTRONICS  = False
+USE_ELECTRONICS  = True
 
 if USE_ELECTRONICS:
     import data_real as sensor_data

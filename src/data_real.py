@@ -38,11 +38,7 @@ def connect():
 
     raise serial.SerialException("Could not connect to any available port.")
 
-
-def read_data(ser=None):
-
-    if __name__ != "__main__":
-        ser = connect()
+def read_data(ser):
 
     while True: 
         line = ser.readline()
