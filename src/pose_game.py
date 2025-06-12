@@ -154,6 +154,8 @@ class PoseGame:
         box_height  = int(self.height * 0.06)
         start_y     = int(self.height * 0.50)
 
+        
+
         self.email_rect    = pygame.Rect(margin,
                                         start_y,
                                         box_width, box_height)
@@ -161,12 +163,20 @@ class PoseGame:
         self.password_rect = pygame.Rect(margin,
                                         start_y + int(self.height * 0.12),
                                         box_width, box_height)
-        
+
+        # ─── IMU SETUP  ─────────────────────────────────────────────
         self.imu_image = pygame.image.load("assets/images/boy_with_accelerometer.png").convert_alpha()          # <<< NEW
         imu_w = int(self.width * 0.35)                             # <<< NEW
         imu_h = int(imu_w * self.imu_image.get_height() /
                             self.imu_image.get_width())           # <<< NEW
         self.imu_image = pygame.transform.scale(self.imu_image, (imu_w, imu_h))
+
+        # ─── INTRO PHASE  ─────────────────────────────────────────────
+        self.intro_step        = 0        # 0 → pose picture, 1 → sleeping bear
+        self.intro_spoken      = False    # ensures one-shot speech per step
+        self.intro_timer_start = 0.0      # time when current step began
+        self.intro_done        = False    # set True after both steps
+        self.sleep_bear_anim_score = 85  
 
     def draw_text_with_outline(self, surface, text, font, x, y, text_color, outline_color=(0, 0, 0), outline_width=2):
         # Draw outline
@@ -264,14 +274,30 @@ class PoseGame:
             
         
     def speak_text(self, text, delay: float = 0.0):
-        if not self.tts_enabled: return
+        if not self.tts_enabled:
+            return
 
         def _worker(msg, wait):
-            if wait > 0: time.sleep(wait)
+            if wait > 0:
+                time.sleep(wait)
             self.tts_engine.say(msg)
             self.tts_engine.runAndWait()
 
         threading.Thread(target=_worker, args=(text, delay), daemon=True).start()
+
+    def stop_speech(self):
+        if self.tts_enabled:
+            try:
+                self.tts_engine.stop()
+            except RuntimeError:
+                pass   
+
+    def _intro_advance(self, next_step):
+        """Jump to `next_step` and reset timer + flag."""
+        self.intro_step         = next_step
+        self.intro_spoken       = False        # make sure next sentence fires
+        self.intro_timer_start  = time.time()
+
 
     def update(self):
         """Advance game state; run once per frame."""
@@ -387,11 +413,53 @@ class PoseGame:
                     if self.preview_raise_start_time is None:
                         self.preview_raise_start_time = time.time()
                     elif time.time() - self.preview_raise_start_time >= 3:
-                        self.ready_confirmed  = True
-                        self.phase            = "full"
-                        self.start_new_pose()
+                        self.ready_confirmed = True
+                        if not self.intro_done:
+                            self.phase              = "intro"
+                            self.intro_step         = 0
+                            self.intro_spoken       = False      # ← reset!
+                            self.intro_timer_start  = time.time()
+                        else:
+                            self.phase = "full"
+                            self.start_new_pose()
                 else:
                     self.preview_raise_start_time = None
+
+        # ────────────────────────────────────────────────────────────
+        # 5. INTRO  – two slides synced to speech
+        # ────────────────────────────────────────────────────────────
+        elif self.phase == "intro":
+            now   = time.time()
+            since = now - self.intro_timer_start
+
+            # STEP 0  — pose image + first sentence
+            if self.intro_step == 0:
+                if not self.intro_spoken:
+                    self.stop_speech()   # cut anything still talking
+                    self.speak_text("You will be shown a pose on the screen. "
+                                    "Try to copy it.")
+                    self.intro_spoken      = True
+                    self.intro_timer_start = now
+                elif since >= 4.0:
+                    self._intro_advance(1)          # → STEP 1
+
+            # STEP 1  — pose image + second sentence
+            elif self.intro_step == 1:
+                if not self.intro_spoken:
+                    self.stop_speech()
+                    self.speak_text("Hold very still so you don’t wake "
+                                    "the angry bear.")
+                    self.intro_spoken      = True
+                    self.intro_timer_start = now
+                elif since >= 3.0:
+                    self._intro_advance(2)          # → STEP 2
+
+            # STEP 2  — sleeping-bear animation (silent, 2 s)
+            elif self.intro_step == 2:
+                self.bear_animator.update(self.sleep_bear_anim_score)
+                if since >= 2.0:
+                    self.phase = "full"
+                    self.start_new_pose()
 
                 
     def draw(self):
@@ -400,6 +468,9 @@ class PoseGame:
         if self.phase == "imu_setup":                   # <<< NEW
             self.draw_imu_setup_screen()               # <<< NEW
             return    
+        if self.phase == "intro":
+            self.draw_intro_screen()
+            return
         if not self.game_active:
             self.draw_start_screen()
         elif self.phase == "preview":
@@ -513,6 +584,33 @@ class PoseGame:
             center = (45, self.height - 45)
             self.draw_ready_circle(center, 40, 3, self.preview_raise_start_time)
 
+
+    def draw_intro_screen(self):
+        self.window.blit(self.background_image, (0, 0))
+
+        if self.intro_step in (0, 1):          # pose picture for both steps
+            # identical scale & placement as draw_full_phase
+            scaled_pose = pygame.transform.scale(self.poses[4][0], (400, 400))   # Flamingo Left
+            pose_x = self.width // 2 - 200
+            pose_y = self.height // 2 - 200
+            self.window.blit(scaled_pose, (pose_x, pose_y))
+
+            # bottom caption text (unchanged) …
+            txt = ("You will be shown a pose on the screen. Try to copy it."
+                if self.intro_step == 0 else
+                "Hold very still so you don’t wake the angry bear.")
+            self.draw_text_with_outline(
+                self.window, txt, self.font_large,
+                self.width // 2 - self.font_large.size(txt)[0] // 2,
+                self.height - int(self.height * 0.15),
+                (246, 203, 102))
+
+        else:                                  # intro_step == 2: sleeping bear
+            bear_center = (self.width // 2,
+                        self.height - int(self.height * 0.25))   # same as corner
+            self.bear_animator.draw(self.window, center_pos=bear_center)
+
+
     def start_new_pose(self):
         """Start a new pose challenge"""
         if self.current_pose_index >= len(self.poses):
@@ -521,12 +619,6 @@ class PoseGame:
 
         self.current_pose = self.poses[self.current_pose_index]
         self.phase = "full"
-        # One-time intro, right after camera setup is done
-        if not self.bear_intro_spoken:
-            self.speak_text("You will be shown a pose on the screen. "
-                            "Hold as still as you can so you don't wake "
-                            "the angry bear.")
-            self.bear_intro_spoken = True
         self.start_time = time.time()
         self.current_score = 0
         self.pose_feedback_text = ""
@@ -805,10 +897,10 @@ class PoseGame:
             #  LOGIN TEXTBOX INTERACTION  (only visible on the start screen)
             # ──────────────────────────────────────────────────────────────
             # ── click anywhere on the IMU screen to continue ────────────
-            if self.phase == "imu_setup":
-                if event.type == pygame.MOUSEBUTTONUP:
-                    self.phase = "preview" 
-                    return                                     # stop processing this frame
+            if self.phase == "imu_setup"and event.type == pygame.MOUSEBUTTONUP:
+                self.stop_speech
+                self.phase = "preview" 
+                return                                     # stop processing this frame
             if not self.game_active:
                 # ✦ Click to focus an input box
                 if event.type == pygame.MOUSEBUTTONDOWN:
