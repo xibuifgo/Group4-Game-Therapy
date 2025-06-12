@@ -1,6 +1,4 @@
 import pygame
-import sys
-import random
 import time
 import math
 from pose_loader import load_poses
@@ -57,7 +55,6 @@ class PoseGame:
         self.pose_corner_duration = 10
         self.current_time = 0
         self.start_time = 0
-        self.phase = "waiting"
         self.phase = "preview"
         self.ready_confirmed = False
         self.preview_raise_start_time = None
@@ -66,16 +63,6 @@ class PoseGame:
         self.poses = load_poses()
         self.current_pose = None
         self.pose_raise_start_time = None
-
-        self.pose_score_thresholds = {
-            0: {"good": 0.6, "moderate": 3.0},  # Normal Standing Stance
-            1: {"good": 0.7, "moderate": 6.0},  # Star Pose
-            2: {"good": 1.0, "moderate": 9.0},  # Tandem
-            3: {"good": 1.1, "moderate": 10.0},  # Heel Raise
-            4: {"good": 1.6, "moderate": 12.0},  # Flamingo Left
-            5: {"good": 1.6, "moderate": 12.0}   # Flamingo Right
-        }
-
 
         # Initialize pose detection and templates
         if POSE_DETECTION_AVAILABLE:
@@ -88,7 +75,6 @@ class PoseGame:
             self.pose_templates = None
 
         # Create feedback images
-        self.success_image = self.create_feedback_image("success")
         self.success_image = self.create_feedback_image("success")
         self.fail_image = self.create_feedback_image("fail")
 
@@ -127,16 +113,9 @@ class PoseGame:
         self.logo_image = pygame.transform.scale(self.logo_image, (logo_width, logo_height))
 
         # State variables
-        self.mock_activity_level = 0
         self.camera_surface = None
         self.pose_feedback_text = ""
         self.previous_landmarks = None
-
-        self.bear_states = {
-            "sleeping": pygame.image.load("assets/images/sleeping_bear.png").convert_alpha(),
-            "waking": pygame.image.load("assets/images/waking_bear.PNG").convert_alpha(),
-            "angry": pygame.image.load("assets/images/angry_bear.PNG").convert_alpha(),
-        }
 
         # TTS setup
         try:
@@ -267,7 +246,6 @@ class PoseGame:
         self.current_pose_index = 0
         self.total_score = 0
         self.game_over = False
-        self.mock_activity_level = 0
         self.previous_landmarks = None
         self.preview_spoken = False
         self.pose_intro_spoken = False
@@ -311,40 +289,31 @@ class PoseGame:
         self.start_time = time.time()
         self.current_score = 0
         self.pose_feedback_text = ""
-        self.mock_activity_level += 1
         
         # Reset speech flags for this pose
         self.pose_intro_spoken = False
         self.arms_instruction_spoken = False
 
     def calculate_pose_score(self):
-        camera_score = 0
-        sensor_score = 0
+        """Blend camera-similarity and IMU stability into one 0-100 score."""
+        camera_score  = 0.0
+        sensor_score  = 0.0
 
+        # 1. Camera – only if pose detection is active
         if self.use_pose_detection and self.pose_detector:
             camera_score = self.calculate_pose_score_from_camera()
 
+        # 2. IMU – handled by PoseScorer (per-pose thresholds baked in)
         try:
             from pose_scoring import PoseScorer
-            scorer = PoseScorer()
-            max_accel = scorer.get_max_acceleration()
-            thresholds = self.pose_score_thresholds.get(self.current_pose_index, {"good": 1.5, "moderate": 2.5})
-
-            # Lower acceleration = better score
-            if max_accel <= thresholds["good"]:
-                sensor_score = 100
-            elif max_accel <= thresholds["moderate"]:
-                sensor_score = 65
-            else:
-                sensor_score = 30
-
+            sensor_score = PoseScorer().sensor_score(self.current_pose_index)
         except Exception as e:
-            print(f"[ERROR] Sensor scoring failed: {e}")
-            sensor_score = 50
+            print(f"[PoseGame] sensor scoring failed: {e}")
+            sensor_score = 50.0          # neutral fallback
 
-        # Weighted average: 70% camera + 30% sensor (you can adjust this)
-        final_score = 0.2 * camera_score + 0.8 * sensor_score
-        return final_score
+        # 3. Weighted blend  (70 % camera, 30 % sensor – tweak to taste)
+        return 0.7 * camera_score + 0.3 * sensor_score
+
 
 
     def calculate_pose_score_from_camera(self):
@@ -416,139 +385,165 @@ class PoseGame:
 
 
 
-    def calculate_pose_score_from_accelerometer(self):
-        """Fallback scoring using accelerometer data simulation"""
-        try:
-            # Get sensor data (simulated)
-            ax = sensor_data.vals["AcX"][-1] if sensor_data.vals["AcX"] else 0
-            ay = sensor_data.vals["AcY"][-1] if sensor_data.vals["AcY"] else 0
-            az = sensor_data.vals["AcZ"][-1] if sensor_data.vals["AcZ"] else 0
-            gx = sensor_data.vals["GyX"][-1] if sensor_data.vals["GyX"] else 0
-            gy = sensor_data.vals["GyY"][-1] if sensor_data.vals["GyY"] else 0
-            gz = sensor_data.vals["GyZ"][-1] if sensor_data.vals["GyZ"] else 0
+    # def calculate_pose_score_from_accelerometer(self):
+    #     """Fallback scoring using accelerometer data simulation"""
+    #     try:
+    #         # Get sensor data (simulated)
+    #         ax = sensor_data.vals["AcX"][-1] if sensor_data.vals["AcX"] else 0
+    #         ay = sensor_data.vals["AcY"][-1] if sensor_data.vals["AcY"] else 0
+    #         az = sensor_data.vals["AcZ"][-1] if sensor_data.vals["AcZ"] else 0
+    #         gx = sensor_data.vals["GyX"][-1] if sensor_data.vals["GyX"] else 0
+    #         gy = sensor_data.vals["GyY"][-1] if sensor_data.vals["GyY"] else 0
+    #         gz = sensor_data.vals["GyZ"][-1] if sensor_data.vals["GyZ"] else 0
 
-            # Calculate activity level
-            sensor_activity = math.sqrt(ax**2 + ay**2 + az**2 + gx**2 + gy**2 + gz**2)
-            elapsed = time.time() - self.start_time
+    #         # Calculate activity level
+    #         sensor_activity = math.sqrt(ax**2 + ay**2 + az**2 + gx**2 + gy**2 + gz**2)
+    #         elapsed = time.time() - self.start_time
             
-            # Basic scoring algorithm
-            base_score = 60 + (self.current_pose_index * 5)
-            activity_factor = min(30, sensor_activity * 30)
-            time_factor = min(15, elapsed * 1.5)
+    #         # Basic scoring algorithm
+    #         base_score = 60 + (self.current_pose_index * 5)
+    #         activity_factor = min(30, sensor_activity * 30)
+    #         time_factor = min(15, elapsed * 1.5)
             
-            score = base_score + activity_factor + time_factor + random.uniform(-15, 15)
-            score = min(100, max(0, score))
+    #         score = base_score + activity_factor + time_factor + random.uniform(-15, 15)
+    #         score = min(100, max(0, score))
             
-            # Update feedback
-            if score >= self.score_threshold:
-                self.pose_feedback_text = "Good pose detected!"
-            else:
-                self.pose_feedback_text = "Keep adjusting your pose"
+    #         # Update feedback
+    #         if score >= self.score_threshold:
+    #             self.pose_feedback_text = "Good pose detected!"
+    #         else:
+    #             self.pose_feedback_text = "Keep adjusting your pose"
             
-            # Debug output
-            if int(elapsed) % 2 == 0:
-                print(f"Pose {self.current_pose_index+1} Score: {score:.1f} (base:{base_score} + activity:{activity_factor:.1f} + time:{time_factor:.1f})")
+    #         # Debug output
+    #         if int(elapsed) % 2 == 0:
+    #             print(f"Pose {self.current_pose_index+1} Score: {score:.1f} (base:{base_score} + activity:{activity_factor:.1f} + time:{time_factor:.1f})")
             
-            return score
+    #         return score
             
-        except Exception as e:
-            print(f"Error in accelerometer scoring: {e}")
-            return 0
+    #     except Exception as e:
+    #         print(f"Error in accelerometer scoring: {e}")
+    #         return 0
 
     def update(self):
-        """Update game state"""
+        """Advance game state; run once per frame."""
         if not self.game_active or self.game_over:
             return
-            
+
         current_time = time.time()
-        elapsed = current_time - self.start_time
-        
+        elapsed      = current_time - self.start_time
+
+        # ────────────────────────────────────────────────────────────
+        # 1. LEARNING / "FULL" PHASE  – player studies the reference
+        # ────────────────────────────────────────────────────────────
         if self.phase == "full":
-            # Speak the arms instruction after 2.5 seconds if not already spoken
+            # One-time spoken cue, 0.5 s after entering this phase
             if not self.arms_instruction_spoken and elapsed >= 0.5:
-                # Speak once, half a second after entering full phase
                 self.speak_text("Raise both arms above your shoulders to begin!")
                 self.arms_instruction_spoken = True
 
-            
-            frame, landmarks = self.pose_detector.get_camera_frame()
-            if frame is not None:
-                self.camera_surface = self.pose_detector.frame_to_pygame_surface(frame)
-                preview_width = int(self.width * 0.25)
-                preview_height = int(self.height * 0.3)
-                self.camera_surface = pygame.transform.scale(self.camera_surface, (preview_width, preview_height))
+            # Live camera preview (if pose detection is enabled)
+            if self.use_pose_detection:
+                frame, landmarks = self.pose_detector.get_camera_frame()
+                if frame is not None:
+                    self.camera_surface = self.pose_detector.frame_to_pygame_surface(frame)
+                    preview_w  = int(self.width * 0.25)
+                    preview_h  = int(self.height * 0.3)
+                    self.camera_surface = pygame.transform.scale(self.camera_surface,
+                                                                (preview_w, preview_h))
 
-            if landmarks:
-                left_hand_raised = landmarks.landmark[self.pose_detector.mp_pose.PoseLandmark.LEFT_WRIST.value].y < \
-                                landmarks.landmark[self.pose_detector.mp_pose.PoseLandmark.LEFT_SHOULDER.value].y
-                right_hand_raised = landmarks.landmark[self.pose_detector.mp_pose.PoseLandmark.RIGHT_WRIST.value].y < \
-                                    landmarks.landmark[self.pose_detector.mp_pose.PoseLandmark.RIGHT_SHOULDER.value].y
+                # Detect both wrists above shoulders for ≥ 3 s to continue
+                if landmarks:
+                    mp          = self.pose_detector.mp_pose.PoseLandmark
+                    l_wrist_y   = landmarks.landmark[mp.LEFT_WRIST.value].y
+                    l_shldr_y   = landmarks.landmark[mp.LEFT_SHOULDER.value].y
+                    r_wrist_y   = landmarks.landmark[mp.RIGHT_WRIST.value].y
+                    r_shldr_y   = landmarks.landmark[mp.RIGHT_SHOULDER.value].y
 
-                if left_hand_raised and right_hand_raised:
-                    if self.pose_raise_start_time is None:
-                        self.pose_raise_start_time = time.time()
-                    elif time.time() - self.pose_raise_start_time >= 3:
-                        self.phase = "corner"
-                        self.start_time = time.time()
+                    both_raised = (l_wrist_y < l_shldr_y) and (r_wrist_y < r_shldr_y)
+
+                    if both_raised:
+                        if self.pose_raise_start_time is None:
+                            self.pose_raise_start_time = time.time()
+                        elif time.time() - self.pose_raise_start_time >= 3:
+                            self.phase              = "corner"
+                            self.start_time         = time.time()
+                            self.pose_raise_start_time = None
+                    else:
                         self.pose_raise_start_time = None
-                else:
-                    self.pose_raise_start_time = None
 
-                    
+        # ────────────────────────────────────────────────────────────
+        # 2. DETECTION / "CORNER" PHASE  – player is holding the pose
+        # ────────────────────────────────────────────────────────────
         elif self.phase == "corner":
-            # Continuously calculate score during pose detection phase
+            # Continuous scoring
             self.current_score = self.calculate_pose_score()
-            thresholds = self.pose_score_thresholds.get(self.current_pose_index, {"good": 80, "moderate": 50})
-            if self.current_score >= thresholds["good"]:
-                bear_score = 85  # sleeping
-            elif self.current_score >= thresholds["moderate"]:
-                bear_score = 65  # waking
-            else:
-                bear_score = 30  # angry
 
-            self.bear_animator.update(bear_score)
+            # Map blended score → bear animation state
+            if self.current_score >= 80:          # good
+                anim_score = 85                   # bear sleeps
+            elif self.current_score >= 50:        # moderate
+                anim_score = 65                   # bear wakes
+            else:                                 # poor
+                anim_score = 30                   # bear angry
 
+            self.bear_animator.update(anim_score)
+
+            # After pose_corner_duration seconds, freeze the score
             if elapsed >= self.pose_corner_duration:
-                self.total_score += self.current_score   
-                self.phase = "scoring"
-                self.start_time = current_time
-                
-        elif self.phase == "scoring" and elapsed >= 3:
-            self.bear_animator.update(self.current_score)
-            # Move to next pose or end game
-            self.current_pose_index += 1
-            if self.current_pose_index < len(self.poses):
-                self.start_new_pose()
-            else:
-                self.game_over = True
+                self.total_score += self.current_score
+                self.phase        = "scoring"
+                self.start_time   = current_time
 
+        # ────────────────────────────────────────────────────────────
+        # 3. SCORING SPLASH  – show result for 3 s, then next pose
+        # ────────────────────────────────────────────────────────────
+        elif self.phase == "scoring":
+            # Keep bear in sync while splash is visible
+            self.bear_animator.update(self.current_score)
+
+            if elapsed >= 3:
+                self.current_pose_index += 1
+                if self.current_pose_index < len(self.poses):
+                    self.start_new_pose()
+                else:
+                    self.game_over = True
+
+        # ────────────────────────────────────────────────────────────
+        # 4. PREVIEW  – setup step before the first pose
+        # ────────────────────────────────────────────────────────────
         elif self.phase == "preview":
             frame, landmarks = self.pose_detector.get_camera_frame()
             if frame is not None:
                 self.camera_surface = self.pose_detector.frame_to_pygame_surface(frame)
-                self.camera_surface = pygame.transform.scale(self.camera_surface, (800, 600))
+                self.camera_surface = pygame.transform.scale(self.camera_surface,
+                                                            (800, 600))
 
             if landmarks:
                 visibility = self.pose_detector.get_landmark_visibility(landmarks)
-                left_visible = visibility.get("left_shoulder", False) and visibility.get("left_elbow", False) and visibility.get("left_ankle", False)
-                right_visible = visibility.get("right_shoulder", False) and visibility.get("right_elbow", False) and visibility.get("right_ankle", False)
+                left_vis   = (visibility.get("left_shoulder") and
+                            visibility.get("left_elbow")   and
+                            visibility.get("left_ankle"))
+                right_vis  = (visibility.get("right_shoulder") and
+                            visibility.get("right_elbow")   and
+                            visibility.get("right_ankle"))
 
-                left_hand_raised = landmarks.landmark[self.pose_detector.mp_pose.PoseLandmark.LEFT_WRIST.value].y < \
-                                landmarks.landmark[self.pose_detector.mp_pose.PoseLandmark.LEFT_SHOULDER.value].y
-                right_hand_raised = landmarks.landmark[self.pose_detector.mp_pose.PoseLandmark.RIGHT_WRIST.value].y < \
-                                    landmarks.landmark[self.pose_detector.mp_pose.PoseLandmark.RIGHT_SHOULDER.value].y
-
-                arms_up = left_visible and right_visible and left_hand_raised and right_hand_raised
+                mp               = self.pose_detector.mp_pose.PoseLandmark
+                left_hand_up     = landmarks.landmark[mp.LEFT_WRIST.value].y  < \
+                                landmarks.landmark[mp.LEFT_SHOULDER.value].y
+                right_hand_up    = landmarks.landmark[mp.RIGHT_WRIST.value].y < \
+                                landmarks.landmark[mp.RIGHT_SHOULDER.value].y
+                arms_up          = left_vis and right_vis and left_hand_up and right_hand_up
 
                 if arms_up:
                     if self.preview_raise_start_time is None:
                         self.preview_raise_start_time = time.time()
                     elif time.time() - self.preview_raise_start_time >= 3:
-                        self.ready_confirmed = True
-                        self.phase = "full"
+                        self.ready_confirmed  = True
+                        self.phase            = "full"
                         self.start_new_pose()
                 else:
                     self.preview_raise_start_time = None
+
                 
     def draw(self):
         """Render the game"""
