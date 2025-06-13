@@ -120,8 +120,6 @@ class PoseGame:
         self.settle_timer_start = None   # when settling started
         self.settle_last_spoken = None   # last number we TTS-announced
 
-
-
         # TTS setup
         try:
             self.tts_engine = pyttsx3.init()
@@ -188,6 +186,16 @@ class PoseGame:
         self.intro_done        = False    # set True after both steps
         self.sleep_bear_anim_score = 85  
 
+        # ─── SCORE ACCUMULATION  ─────────────────────────────────────────────
+        self.frame_rate          = 60          # expected FPS of your Pygame loop
+        self.good_inc_per_frame  = 1.0         # tweak these 3 to taste
+        self.mod_inc_per_frame   = 0.6
+        self.poor_inc_per_frame  = 0.2
+        self.pose_accumulator    = 0           # reset every pose
+        self.max_accum_this_pose = (
+            self.pose_corner_duration * self.frame_rate * self.good_inc_per_frame
+        )
+
     def draw_text_with_outline(self, surface, text, font, x, y, text_color, outline_color=(0, 0, 0), outline_width=2):
         # Draw outline
         for dx in [-outline_width, 0, outline_width]:
@@ -247,7 +255,6 @@ class PoseGame:
     def start_game(self):
         """Initialize game state"""
         self.game_active = True
-        self.current_pose_index = 0
         self.total_score = 0
         self.game_over = False
         self.previous_landmarks = None
@@ -363,24 +370,40 @@ class PoseGame:
         # 2. DETECTION / "CORNER" PHASE  – player is holding the pose
         # ────────────────────────────────────────────────────────────
         elif self.phase == "corner":
-            # Continuous scoring
-            self.current_score = self.calculate_pose_score()
+            # ---- 1  Blend camera + IMU once this frame
+            blended = self.calculate_pose_score()      # 0-100 quality snap-shot
 
-            # Map blended score → bear animation state
-            if self.current_score >= 80:          # good
-                anim_score = 85                   # bear sleeps
-            elif self.current_score >= 50:        # moderate
-                anim_score = 65                   # bear wakes
-            else:                                 # poor
-                anim_score = 30                   # bear angry
+            # ---- 2  Increment accumulator
+            if   blended >= 80:
+                self.pose_accumulator += self.good_inc_per_frame
+            elif blended >= 50:
+                self.pose_accumulator += self.mod_inc_per_frame
+            else:
+                self.pose_accumulator += self.poor_inc_per_frame
+            # never exceed the theoretical maximum
+            self.pose_accumulator = min(self.pose_accumulator, self.max_accum_this_pose)
 
+            # ---- 3  Derive a live percentage for UI + bear
+            self.current_score = round(
+                100 * self.pose_accumulator / self.max_accum_this_pose
+            )
+
+            # ---- 4  Animate bear from *blended* quality (keeps responsiveness)
+            if   blended >= 80:   anim_score = 85      # sleeping
+            elif blended >= 50:   anim_score = 65      # awake
+            else:                 anim_score = 30      # angry
             self.bear_animator.update(anim_score)
 
-            # After pose_corner_duration seconds, freeze the score
+            # ---- 5  When 10 s are up, freeze the score
             if elapsed >= self.pose_corner_duration:
+                # final score for this pose
+                self.current_score = round(
+                    100 * self.pose_accumulator / self.max_accum_this_pose
+                )
                 self.total_score += self.current_score
                 self.phase        = "scoring"
-                self.sta5rt_time   = current_time
+                self.start_time   = current_time
+
 
         # ────────────────────────────────────────────────────────────
         # 3. SCORING SPLASH  – show result for 3 s, then next pose
@@ -689,7 +712,9 @@ class PoseGame:
         
         # Reset speech flags for this pose
         self.pose_intro_spoken = False
+        self.elapsed = None
         self.arms_instruction_spoken = False
+        self.pose_accumulator = 0
 
     def calculate_pose_score(self):
         """Blend camera-similarity and IMU stability into one 0-100 score."""
@@ -699,15 +724,19 @@ class PoseGame:
         # 1. Camera – only if pose detection is active
         if self.use_pose_detection and self.pose_detector:
             camera_score = self.calculate_pose_score_from_camera()
+            print(f"Camera score: {camera_score}")
 
         # 2. IMU – handled by PoseScorer (per-pose thresholds baked in)
         try:
+            import pose_scoring
+            print("Imported from:", pose_scoring.__file__)
+            print("PoseScorer members:", [m for m in dir(pose_scoring.PoseScorer) if not m.startswith("_")])
             from pose_scoring import PoseScorer
             sensor_score = PoseScorer().sensor_score(self.current_pose_index)
         except Exception as e:
             print(f"[PoseGame] sensor scoring failed: {e}")
             sensor_score = 50.0          # neutral fallback
-
+        print(f"Sensor score: {sensor_score}")
         # 3. Weighted blend  (70 % camera, 30 % sensor – tweak to taste)
         return 0.7 * camera_score + 0.3 * sensor_score
 
@@ -731,8 +760,7 @@ class PoseGame:
 
 
     def calculate_pose_score_from_camera(self):
-        """Calcula
-        te pose score using camera-based pose detection"""
+        """Calculate pose score using camera-based pose detection"""
         try:
             # Get camera frame and landmarks
             frame, landmarks = self.pose_detector.get_camera_frame()
@@ -745,15 +773,25 @@ class PoseGame:
             # Check if pose is detected
             if landmarks is None:
                 self.pose_feedback_text = "No pose detected"
+                print("pose not detected")
                 return 0
             
             # Get pose angles
             angles = self.pose_detector.get_pose_angles(landmarks)
             if angles is None:
                 self.pose_feedback_text = "Could not calculate pose angles"
+                print("cannot calculate pose angles")
                 return 0
             
             # Calculate similarity score
+            tmpl   = self.pose_templates.templates[self.current_pose_index]
+            tols   = getattr(self.pose_templates, "tolerances", {})
+            print("--- DEBUG 2 ----------------------------")
+            print("live keys :", list(angles.keys())[:8], "...")
+            print("tmpl keys :", list(tmpl.keys())[:8], "...")
+            print("tol  keys :", list(tols.keys())[:8], "...")
+            print("----------------------------------------")
+
             score = self.pose_templates.calculate_pose_similarity(angles, self.current_pose_index)
             
             # Get detailed feedback
@@ -761,8 +799,16 @@ class PoseGame:
             
             # Store landmarks for stability checking
             self.previous_landmarks = landmarks
-            
-            return score
+
+            template_angles = self.pose_templates.templates[self.current_pose_index]
+            print("--- DEBUG --------------------------------")
+            print("index", self.current_pose_index)
+            print("live left_elbow :", angles["left_elbow"])
+            print("tmpl left_elbow :", template_angles["left_elbow"])
+            print("first tolerance :", self.pose_templates.tolerances["left_elbow"])
+            print("-------------------------------------------")
+  
+            return score * 100.0
             
         except Exception as e:
             print(f"Error in camera pose detection: {e}")
@@ -896,7 +942,7 @@ class PoseGame:
                 self.draw_pose_feedback()
 
         else:  # scoring phase
-            pose_score_text = self.font_xlarge.render(f"{int(self.current_score)}", True, (246, 203, 102))
+            pose_score_text = self.font_xlarge.render(f"{int(self.current_score)}%", True, (246, 203, 102))
             total_score_text = self.font_large.render(f"Total: {int(self.total_score)}", True, (246, 203, 102))
 
             pose_x = self.width // 2 - pose_score_text.get_width() // 2
@@ -905,7 +951,7 @@ class PoseGame:
             total_x = self.width // 2 - total_score_text.get_width() // 2
             total_y = pose_y + pose_score_text.get_height() + int(self.height * 0.03)
 
-            self.draw_text_with_outline(self.window, f"{int(self.current_score)}", self.font_xlarge, pose_x, pose_y, (246, 203, 102))
+            self.draw_text_with_outline(self.window, f"{int(self.current_score)}%", self.font_xlarge, pose_x, pose_y, (246, 203, 102))
             self.draw_text_with_outline(self.window, f"Total: {int(self.total_score)}", self.font_large, total_x, total_y, (246, 203, 102))
 
 
@@ -934,7 +980,7 @@ class PoseGame:
         font = self.font  # standardized font
 
         if self.phase in ["full", "corner"]:
-            score_text = font.render(f"Pose Score: {int(self.current_score)}", True, (246, 203, 102))
+            score_text = font.render(f"Pose Score: {int(self.current_score)}%", True, (246, 203, 102))
             box_width = score_text.get_width() + padding_x * 2
             box_height = score_text.get_height() + padding_y * 2
 
@@ -980,7 +1026,7 @@ class PoseGame:
             # ──────────────────────────────────────────────────────────────
             # ── click anywhere on the IMU screen to continue ────────────
             if self.phase == "imu_setup"and event.type == pygame.MOUSEBUTTONUP:
-                self.stop_speech
+                self.stop_speech()
                 self.phase = "preview" 
                 return                                     # stop processing this frame
             if not self.game_active:

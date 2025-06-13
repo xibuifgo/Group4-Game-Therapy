@@ -1,112 +1,70 @@
+# pose_scoring.py
 import math
-import numpy as np
-from pose_templates import PoseTemplates
-USE_ELECTRONICS = False  # Toggle this to False when you don't have the kit
+USE_ELECTRONICS = True          # set by PoseGame or at the top level
 
 if USE_ELECTRONICS:
     import data_real as sensor_data
 else:
     import data_temp as sensor_data
 
+
 class PoseScorer:
-    def __init__(self):
-        self.poses = [
-            # T-Pose
-            {"AcX": {"expected": 0.0, "tolerance": 0.3},
-             "AcY": {"expected": 0.0, "tolerance": 0.3},
-             "AcZ": {"expected": 1.0, "tolerance": 0.3},
-             "GyX": {"expected": 0.0, "tolerance": 0.2},
-             "GyY": {"expected": 0.0, "tolerance": 0.2},
-             "GyZ": {"expected": 0.0, "tolerance": 0.2}},
+    """
+    Computes a stability score out of 100 based purely on recent
+    accelerometer wobble.  Lower peak acceleration → higher score.
+    """
 
-            # Flamingo Right
-            {"AcX": {"expected": 0.3, "tolerance": 0.3},
-             "AcY": {"expected": 0.0, "tolerance": 0.3},
-             "AcZ": {"expected": 0.9, "tolerance": 0.3},
-             "GyX": {"expected": 0.0, "tolerance": 0.2},
-             "GyY": {"expected": 0.0, "tolerance": 0.2},
-             "GyZ": {"expected": 0.0, "tolerance": 0.2}},
+    # --- Per-pose peak-acceleration bands (g) ------------------------
+    # Taken from the old pose_score_thresholds in pose_game.py
+    # Format:  (good_limit, moderate_limit)
+    #
+    ACCEL_THRESHOLDS = [
+        (20.6, 23.0),     # 0  Normal standing
+        (20.7, 26.0),     # 1  Star
+        (21.0, 29.0),     # 2  Tandem
+        (21.1, 30.0),    # 3  Heel-raise
+        (21.6, 32.0),    # 4  Flamingo left
+        (21.6, 32.0)     # 5  Flamingo right
+    ]
+    # -----------------------------------------------------------------
 
-            # Flamingo Left
-            {"AcX": {"expected": -0.3, "tolerance": 0.3},
-             "AcY": {"expected": 0.0, "tolerance": 0.3},
-             "AcZ": {"expected": 0.9, "tolerance": 0.3},
-             "GyX": {"expected": 0.0, "tolerance": 0.2},
-             "GyY": {"expected": 0.0, "tolerance": 0.2},
-             "GyZ": {"expected": 0.0, "tolerance": 0.2}},
+    WINDOW = 30        # how many readings (~1 s @ 30 Hz) to inspect
 
-            # Airplane Pose
-            {"AcX": {"expected": 0.6, "tolerance": 0.3},
-             "AcY": {"expected": 0.1, "tolerance": 0.3},
-             "AcZ": {"expected": 0.8, "tolerance": 0.3},
-             "GyX": {"expected": 0.0, "tolerance": 0.2},
-             "GyY": {"expected": 0.0, "tolerance": 0.2},
-             "GyZ": {"expected": 0.0, "tolerance": 0.2}},
-
-            # Star Pose
-            {"AcX": {"expected": 0.0, "tolerance": 0.3},
-             "AcY": {"expected": 0.0, "tolerance": 0.3},
-             "AcZ": {"expected": 1.0, "tolerance": 0.3},
-             "GyX": {"expected": 0.0, "tolerance": 0.2},
-             "GyY": {"expected": 0.0, "tolerance": 0.2},
-             "GyZ": {"expected": 0.0, "tolerance": 0.2}}
-        ]
-        self.history_length = 5
-        self.readings_history = []
-
-    def get_normalized_sensor_data(self):
-        ax = sensor_data.vals["AcX"][-1] if sensor_data.vals["AcX"] else 0
-        ay = sensor_data.vals["AcY"][-1] if sensor_data.vals["AcY"] else 0
-        az = sensor_data.vals["AcZ"][-1] if sensor_data.vals["AcZ"] else 0
-        gx = sensor_data.vals["GyX"][-1] if sensor_data.vals["GyX"] else 0
-        gy = sensor_data.vals["GyY"][-1] if sensor_data.vals["GyY"] else 0
-        gz = sensor_data.vals["GyZ"][-1] if sensor_data.vals["GyZ"] else 0
-
-        ax = max(-1, min(1, ax / 16384))
-        ay = max(-1, min(1, ay / 16384))
-        az = max(-1, min(1, az / 16384))
-        gx = max(-1, min(1, gx / 131))
-        gy = max(-1, min(1, gy / 131))
-        gz = max(-1, min(1, gz / 131))
-
-        return {"AcX": ax, "AcY": ay, "AcZ": az, "GyX": gx, "GyY": gy, "GyZ": gz}
-    
-    def get_max_acceleration(self):
+    # -----------------------------------------------------------------
+    # Low-level helpers
+    # -----------------------------------------------------------------
+    @staticmethod
+    def _max_accel_last_window():
+        """Return the largest √(ax²+ay²+az²) in the most-recent window."""
         try:
-            ax_vals = data_real.vals["AcX"][-30:]
-            ay_vals = data_real.vals["AcY"][-30:]
-            az_vals = data_real.vals["AcZ"][-30:]
-            magnitudes = [math.sqrt(ax**2 + ay**2 + az**2) for ax, ay, az in zip(ax_vals, ay_vals, az_vals)]
-            return max(magnitudes)
+            ax = sensor_data.vals["AcX"][-PoseScorer.WINDOW:]
+            ay = sensor_data.vals["AcY"][-PoseScorer.WINDOW:]
+            az = sensor_data.vals["AcZ"][-PoseScorer.WINDOW:]
+            print(f"Acceleration Window: {ax}, {ay}, {ay}")
+            mags = [math.sqrt(x**2 + y**2 + z**2)
+                     for x, y, z in zip(ax, ay, az)]
+            return max(mags) if mags else float("inf")
         except Exception as e:
-            print(f"[ERROR] max accel calculation failed: {e}")
-            return float('inf')  # Treat error as very unstable
+            print(f"[PoseScorer] accel window error: {e}")
+            return float("inf")               # treat error as very shaky
 
-    def smooth_readings(self, new_reading):
-        self.readings_history.append(new_reading)
-        if len(self.readings_history) > self.history_length:
-            self.readings_history.pop(0)
+    # -----------------------------------------------------------------
+    # Public API
+    # -----------------------------------------------------------------
+    def sensor_score(self, pose_index: int) -> float:
+        """
+        100 when the peak acceleration is within `good`;
+         65 when within `moderate`;
+         30 otherwise.
+        """
+        if pose_index >= len(self.ACCEL_THRESHOLDS):
+            return 50.0                       # unknown pose → neutral
 
-        return {k: sum(d[k] for d in self.readings_history) / len(self.readings_history)
-                for k in new_reading}
-
-    def calculate_score(self, pose_index):
-        if pose_index < 0 or pose_index >= len(self.poses):
-            return 0
-
-        current = self.get_normalized_sensor_data()
-        smoothed = self.smooth_readings(current)
-        expected_pose = self.poses[pose_index]
-
-        sensor_scores = {}
-        for key in expected_pose:
-            expected = expected_pose[key]["expected"]
-            tolerance = expected_pose[key]["tolerance"]
-            diff = abs(smoothed[key] - expected)
-
-            if diff > tolerance:
-                sensor_scores[key] = 0
-            else:
-                sensor_scores[key] = 100 * (1 - diff / tolerance)
-
-        return sum(sensor_scores.values()) / len(sensor_scores)
+        good_lim, mod_lim = self.ACCEL_THRESHOLDS[pose_index]
+        max_accel         = self._max_accel_last_window()
+        print(f"max accel:{max_accel}, good_lim: {good_lim}, mod_lim: {mod_lim}")
+        if max_accel <= good_lim:
+            return 100.0
+        if max_accel <= mod_lim:
+            return 65.0
+        return 30.0
