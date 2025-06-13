@@ -165,11 +165,15 @@ class PoseGame:
                                         box_width, box_height)
 
         # ─── IMU SETUP  ─────────────────────────────────────────────
-        self.imu_image = pygame.image.load("assets/images/boy_with_accelerometer.png").convert_alpha()          # <<< NEW
+        self.imu_image = pygame.image.load("assets/images/imu_setup.png").convert_alpha()          # <<< NEW
         imu_w = int(self.width * 0.35)                             # <<< NEW
         imu_h = int(imu_w * self.imu_image.get_height() /
                             self.imu_image.get_width())           # <<< NEW
         self.imu_image = pygame.transform.scale(self.imu_image, (imu_w, imu_h))
+
+        # camera setup
+        self.camera_setup_img = pygame.image.load("assets/images/camera_setup.PNG").convert_alpha()
+
 
         # ─── INTRO PHASE  ─────────────────────────────────────────────
         self.intro_step        = 0        # 0 → pose picture, 1 → sleeping bear
@@ -544,14 +548,43 @@ class PoseGame:
         self.play_music("setup")
         self.window.blit(self.background_image, (0, 0))
 
-        if self.camera_surface:
-            cam_rect = self.camera_surface.get_rect(center=(self.width // 2, self.height // 2 - 100))
-            border_rect = cam_rect.inflate(10, 10)
-            pygame.draw.rect(self.window, (46, 15, 0), border_rect, width=4, border_radius=6)
-            self.window.blit(self.camera_surface, cam_rect)
+        # ───── dimensions: half-screen width ─────────────────────────
+        side_margin   = int(self.width * 0.05)   # 5 % of window width
+        inter_gap     = int(self.width * 0.02)   # 2 % gap between panels
 
+        # effective width available for *both* panels
+        usable_width  = self.width - 2 * side_margin - inter_gap
+        panel_width   = usable_width // 2        # each panel gets half
+        panel_height  = int(panel_width * 0.75)  # keep 4:3-ish aspect
+
+        preview_width  = self.width // 2          # exactly half the window
+        preview_height = int(preview_width * 3/4) # keep 4:3-ish aspect
+
+        # ───── 1. live camera – right half ───────────────────────────
+        if self.camera_surface:
+            self.camera_surface = pygame.transform.scale(
+                self.camera_surface, (panel_width, panel_height))
+
+            cam_x = side_margin + panel_width + inter_gap   # start of right panel
+            cam_y = self.height // 2 - panel_height // 2 - 40
+
+            cam_rect = pygame.Rect(cam_x, cam_y, panel_width, panel_height)
+            pygame.draw.rect(self.window, (46, 15, 0),
+                            cam_rect.inflate(10, 10), width=4, border_radius=6)
+            self.window.blit(self.camera_surface, cam_rect)
         else:
-            cam_rect = pygame.Rect(0, 0, 0, 0)
+            cam_rect = pygame.Rect(0, 0, panel_width, panel_height)
+
+
+        # ───── 2. static setup illustration – left half ─────────────
+        setup_img = pygame.transform.scale(
+            self.camera_setup_img, (panel_width, panel_height))
+
+        setup_x = side_margin                 # flush with left margin
+        setup_y = cam_y                       # vertically aligned with preview
+
+        setup_rect = pygame.Rect(setup_x, setup_y, panel_width, panel_height)
+        self.window.blit(setup_img, setup_rect)
 
         font_large = self.font
         instruction_color = (246, 203, 102)
