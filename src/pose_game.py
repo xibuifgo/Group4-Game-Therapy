@@ -12,7 +12,7 @@ if USE_ELECTRONICS:
 else:
     import data_temp as sensor_data
 
-DEV_MODE = False
+DEV_MODE = True
 
 
 # Try to import pose detection - fallback to mock data if not available
@@ -59,12 +59,13 @@ class PoseGame:
         self.ready_confirmed = False
         self.preview_raise_start_time = None
         self.current_bear_state = "sleeping"  # or "neutral" if you have one
+        self.elapsed = None
 
         self.poses = load_poses()
         self.current_pose = None
         self.pose_raise_start_time = None
 
-        # Initialize pose detection and templates
+        # Initialize pose detection and template.s
         if POSE_DETECTION_AVAILABLE:
             self.use_pose_detection = True
             self.pose_detector = PoseDetector()
@@ -116,11 +117,16 @@ class PoseGame:
         self.camera_surface = None
         self.pose_feedback_text = ""
         self.previous_landmarks = None
+        self.settle_timer_start = None   # when settling started
+        self.settle_last_spoken = None   # last number we TTS-announced
+
+
 
         # TTS setup
         try:
             self.tts_engine = pyttsx3.init()
             self.tts_enabled = True
+            self._tts_lock   = threading.Lock()
             self.tts_engine.setProperty('volume', 1.0)  # Max TTS volume (0.0 to 1.0)
         except Exception as e:
             print("TTS init failed:", e)
@@ -250,7 +256,7 @@ class PoseGame:
         self.arms_instruction_spoken = False
 
         if DEV_MODE:
-            self.phase = "full"
+            self.phase = "intro"
             self.start_new_pose()
         else:
             self.phase = "imu_setup"
@@ -284,8 +290,9 @@ class PoseGame:
         def _worker(msg, wait):
             if wait > 0:
                 time.sleep(wait)
-            self.tts_engine.say(msg)
-            self.tts_engine.runAndWait()
+            with self._tts_lock:                
+                self.tts_engine.say(msg)
+                self.tts_engine.runAndWait()
 
         threading.Thread(target=_worker, args=(text, delay), daemon=True).start()
 
@@ -343,9 +350,11 @@ class PoseGame:
                     if both_raised:
                         if self.pose_raise_start_time is None:
                             self.pose_raise_start_time = time.time()
+
                         elif time.time() - self.pose_raise_start_time >= 3:
-                            self.phase              = "corner"
-                            self.start_time         = time.time()
+                            # finished the 3-s gate – start settling
+                            self.phase               = "settling"
+                            self.settle_timer_start  = time.time()
                             self.pose_raise_start_time = None
                     else:
                         self.pose_raise_start_time = None
@@ -371,7 +380,7 @@ class PoseGame:
             if elapsed >= self.pose_corner_duration:
                 self.total_score += self.current_score
                 self.phase        = "scoring"
-                self.start_time   = current_time
+                self.sta5rt_time   = current_time
 
         # ────────────────────────────────────────────────────────────
         # 3. SCORING SPLASH  – show result for 3 s, then next pose
@@ -451,7 +460,7 @@ class PoseGame:
             elif self.intro_step == 1:
                 if not self.intro_spoken:
                     self.stop_speech()
-                    self.speak_text("Hold very still so you don’t wake "
+                    self.speak_text("Hold the pose very still for 10 seconds so you don’t wake "
                                     "the angry bear.")
                     self.intro_spoken      = True
                     self.intro_timer_start = now
@@ -465,15 +474,37 @@ class PoseGame:
                     self.phase = "full"
                     self.start_new_pose()
 
-                
+        # ──────────────────────────────────────────────
+        # 6. SETTLING  – 3-2-1 → "Pose!" countdown
+        # ──────────────────────────────────────────────
+        elif self.phase == "settling":
+
+            if self.elapsed is None:                 # run it once
+                self.elapsed = time.time()
+
+                # queue the words (no 'interrupt' parameter needed)
+                self.speak_text("Three")             # t = 0 s
+                self.speak_text("Two")   # t = 1 s
+                self.speak_text("One")   # t = 2 s
+                self.speak_text("Pose!")  # t = 3 s
+
+            # when Pose! has been visible for a further second …
+            if time.time() - self.elapsed >= 4.0:    # 3-s countdown + 1-s hold
+                self.phase      = "corner"
+                self.start_time = time.time()
+
+
     def draw(self):
         """Render the game"""
         self.window.blit(self.background_image, (0, 0))
-        if self.phase == "imu_setup":                   # <<< NEW
-            self.draw_imu_setup_screen()               # <<< NEW
+        if self.phase == "imu_setup":                 
+            self.draw_imu_setup_screen()             
             return    
         if self.phase == "intro":
             self.draw_intro_screen()
+            return
+        if self.phase == "settling":
+            self.draw_settling_screen()
             return
         if not self.game_active:
             self.draw_start_screen()
@@ -679,6 +710,24 @@ class PoseGame:
 
         # 3. Weighted blend  (70 % camera, 30 % sensor – tweak to taste)
         return 0.7 * camera_score + 0.3 * sensor_score
+
+    def draw_settling_screen(self):
+        self.window.blit(self.background_image, (0, 0))
+
+        elapsed   = time.time() - self.settle_timer_start
+        remaining = max(0, 3 - int(elapsed))
+
+        if remaining > 0:
+            # big red numeral
+            txt_surf = self.font_xlarge.render(str(remaining), True, (255, 0, 0))
+        else:
+            # "Pose!" in gold
+            txt_surf = self.font_xlarge.render("Pose!", True, (246, 203, 102))
+
+        x = self.width  // 2 - txt_surf.get_width()  // 2
+        y = self.height // 2 - txt_surf.get_height() // 2
+        self.window.blit(txt_surf, (x, y))
+
 
 
     def calculate_pose_score_from_camera(self):
