@@ -3,10 +3,10 @@ import time
 import math
 from pose_loader import load_poses
 from bear_animator import BearAnimator
+from pose_scoring import PoseScorer
 import threading
 import pyttsx3
-USE_ELECTRONICS = False  # Toggle this to False when you don't have the kit
-
+USE_ELECTRONICS = True
 if USE_ELECTRONICS:
     import data_real as sensor_data
 else:
@@ -50,7 +50,7 @@ class PoseGame:
         self.font_xlarge = pygame.font.Font("assets/fonts/VT323-Regular.ttf", font_xlarge_size)
 
         self.bear_animator = BearAnimator(self.width, self.height)
-
+        self.pose_scorer = PoseScorer()
         self.pose_full_duration = 3
         self.pose_corner_duration = 10
         self.current_time = 0
@@ -356,6 +356,7 @@ class PoseGame:
                             self.phase               = "settling"
                             self.settle_timer_start  = time.time()
                             self.pose_raise_start_time = None
+                            self.elapsed = None
                     else:
                         self.pose_raise_start_time = None
 
@@ -364,23 +365,18 @@ class PoseGame:
         # ────────────────────────────────────────────────────────────
         elif self.phase == "corner":
             # Continuous scoring
-            self.current_score = self.calculate_pose_score()
-
-            # Map blended score → bear animation state
-            if self.current_score >= 80:          # good
-                anim_score = 85                   # bear sleeps
-            elif self.current_score >= 50:        # moderate
-                anim_score = 65                   # bear wakes
-            else:                                 # poor
-                anim_score = 30                   # bear angry
-
-            self.bear_animator.update(anim_score)
+            self.current_score = self.pose_scorer.sensor_score() * self.calculate_pose_score_from_camera()
+            self.max_score += 1
+            self.pose_score += self.current_score    
+            
+            self.bear_animator.update(self.current_score)
 
             # After pose_corner_duration seconds, freeze the score
             if elapsed >= self.pose_corner_duration:
-                self.total_score += self.current_score
+                self.normalised_pose_score = 100* (int(self.pose_score) / int(self.max_score))
+                self.total_score += self.normalised_pose_score
                 self.phase        = "scoring"
-                self.sta5rt_time   = current_time
+                self.start_time   = current_time
 
         # ────────────────────────────────────────────────────────────
         # 3. SCORING SPLASH  – show result for 3 s, then next pose
@@ -684,32 +680,15 @@ class PoseGame:
         self.current_pose = self.poses[self.current_pose_index]
         self.phase = "full"
         self.start_time = time.time()
+        self.max_score = 0
         self.current_score = 0
+        self.pose_score = 0
         self.pose_feedback_text = ""
         
         # Reset speech flags for this pose
         self.pose_intro_spoken = False
         self.arms_instruction_spoken = False
 
-    def calculate_pose_score(self):
-        """Blend camera-similarity and IMU stability into one 0-100 score."""
-        camera_score  = 0.0
-        sensor_score  = 0.0
-
-        # 1. Camera – only if pose detection is active
-        if self.use_pose_detection and self.pose_detector:
-            camera_score = self.calculate_pose_score_from_camera()
-
-        # 2. IMU – handled by PoseScorer (per-pose thresholds baked in)
-        try:
-            from pose_scoring import PoseScorer
-            sensor_score = PoseScorer().sensor_score(self.current_pose_index)
-        except Exception as e:
-            print(f"[PoseGame] sensor scoring failed: {e}")
-            sensor_score = 50.0          # neutral fallback
-
-        # 3. Weighted blend  (70 % camera, 30 % sensor – tweak to taste)
-        return 0.7 * camera_score + 0.3 * sensor_score
 
     def draw_settling_screen(self):
         self.window.blit(self.background_image, (0, 0))
@@ -754,7 +733,8 @@ class PoseGame:
                 return 0
             
             # Calculate similarity score
-            score = self.pose_templates.calculate_pose_similarity(angles, self.current_pose_index)
+            score = self.pose_templates.get_pose_score(angles, self.current_pose_index)
+            print(f"CAMERA SCORE: {score}")
             
             # Get detailed feedback
             self.pose_feedback_text = self.pose_templates.get_pose_feedback(angles, self.current_pose_index)
@@ -766,7 +746,7 @@ class PoseGame:
             
         except Exception as e:
             print(f"Error in camera pose detection: {e}")
-            self.pose_feedback_text = f"Detection error: {str(e)[:50]}"
+            self.pose_feedback_text = f"Detection error: {str(e)}"
             return 0
 
 
@@ -896,7 +876,10 @@ class PoseGame:
                 self.draw_pose_feedback()
 
         else:  # scoring phase
-            pose_score_text = self.font_xlarge.render(f"{int(self.current_score)}", True, (246, 203, 102))
+            if self.max_score == 0:
+                pose_score_text = self.font_xlarge.render(f"Pose Score: 0", True, (246, 203, 102))
+            else:
+                pose_score_text = self.font_xlarge.render(f"Pose Score: {int(100*(int(self.pose_score))/(int(self.max_score)))}", True, (246, 203, 102))
             total_score_text = self.font_large.render(f"Total: {int(self.total_score)}", True, (246, 203, 102))
 
             pose_x = self.width // 2 - pose_score_text.get_width() // 2
@@ -905,7 +888,10 @@ class PoseGame:
             total_x = self.width // 2 - total_score_text.get_width() // 2
             total_y = pose_y + pose_score_text.get_height() + int(self.height * 0.03)
 
-            self.draw_text_with_outline(self.window, f"{int(self.current_score)}", self.font_xlarge, pose_x, pose_y, (246, 203, 102))
+            if self.max_score == 0:
+                self.draw_text_with_outline(self.window, f"Pose Score: 0", self.font_xlarge, pose_x, pose_y, (246, 203, 102))
+            else:
+                self.draw_text_with_outline(self.window, f"Pose Score: {int(100*(int(self.pose_score))/(int(self.max_score)))}", self.font_xlarge, pose_x, pose_y, (246, 203, 102))
             self.draw_text_with_outline(self.window, f"Total: {int(self.total_score)}", self.font_large, total_x, total_y, (246, 203, 102))
 
 
@@ -916,6 +902,7 @@ class PoseGame:
             return
 
         feedback_lines = self.pose_feedback_text.split("\n")
+        print(f"DRAWING FEEDBACK: {feedback_lines}")
         feedback_font = self.font_large
 
         y_offset = int(self.height * 0.40)
@@ -934,7 +921,10 @@ class PoseGame:
         font = self.font  # standardized font
 
         if self.phase in ["full", "corner"]:
-            score_text = font.render(f"Pose Score: {int(self.current_score)}", True, (246, 203, 102))
+            if self.max_score == 0:
+                score_text = font.render(f"Pose Score: 0", True, (246, 203, 102))
+            else:
+                score_text = font.render(f"Pose Score: {int(100*(int(self.pose_score))/(int(self.max_score)))}", True, (246, 203, 102))
             box_width = score_text.get_width() + padding_x * 2
             box_height = score_text.get_height() + padding_y * 2
 

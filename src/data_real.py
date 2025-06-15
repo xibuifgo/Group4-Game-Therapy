@@ -8,10 +8,7 @@ import serial.tools.list_ports
 
 vals = {"AcX": [0],
             "AcY": [0],
-            "AcZ": [0],
-            "GyX": [0],
-            "GyY": [0],
-            "GyZ": [0]}
+            "AcZ": [0],}
 
 ports = serial.tools.list_ports.comports(include_links=True)
 available = [port.device for port in ports]
@@ -58,9 +55,7 @@ def read_data(ser):
 
             for key in vals.keys():
                 vals[key].append(data[key])
-            
-            if __name__ != "__main__":
-                return vals
+            # print(vals)
             
         except json.JSONDecodeError as e:
 
@@ -69,7 +64,7 @@ def read_data(ser):
             continue
 
 def start_data_thread():
-    print("[DEBUG] start_data_thread() was called.")
+    print("[DEBUG] REAL: start_data_thread() was called.")
 
     ser = connect()
     if ser is not None:

@@ -26,7 +26,7 @@ class PoseTemplates:
                 tolerance = template["tolerances"].get(joint, template["tolerances"]["default"])
                 total_score += self._score_angle(actual_angle, target_angle, tolerance)
                 count += 1
-        return total_score / count if count > 0 else 0
+        return total_score // count if count > 0 else 0
 
     def _handle_special_pose(self, angles, template):
         check = template["special_check"]
@@ -42,7 +42,7 @@ class PoseTemplates:
             if not spread_ok: return 0
             left_score = self._score_angle(angles.get("left_shoulder", 0), angles_dict["left_shoulder"], tolerances.get("left_shoulder", tolerances["default"]))
             right_score = self._score_angle(angles.get("right_shoulder", 0), angles_dict["right_shoulder"], tolerances.get("right_shoulder", tolerances["default"]))
-            return (left_score + right_score) / 2
+            return (left_score + right_score) // 2
         elif check == "tandem_stance":
             x_aligned = abs(angles.get("left_ankle_x", 0) - angles.get("right_ankle_x", 0)) < 0.05
             z_aligned = abs(angles.get("left_ankle_z", 0) - angles.get("right_ankle_z", 0)) < 0.03
@@ -50,13 +50,13 @@ class PoseTemplates:
             leg_score = (self._score_angle(angles.get("left_leg", 0), angles_dict["left_leg"], tolerances.get("left_leg", tolerances["default"])) + self._score_angle(angles.get("right_leg", 0), angles_dict["right_leg"], tolerances.get("right_leg", tolerances["default"]))) / 2
             torso_score = self._score_angle(angles.get("torso_lean", 0), angles_dict["torso_lean"], tolerances.get("torso_lean", tolerances["default"]))
             align_score = 100 if foot_aligned else 0
-            return (leg_score + torso_score + align_score) / 3
+            return (leg_score + torso_score + align_score) // 3
         elif check == "heel_raise":
             lifted = (angles.get("left_heel_y", 1) > angles.get("left_toe_y", 1) - 0.02 and angles.get("right_heel_y", 1) > angles.get("right_toe_y", 1) + 0.02)
             leg_score = (self._score_angle(angles.get("left_leg", 0), angles_dict["left_leg"], tolerances.get("left_leg", tolerances["default"])) + self._score_angle(angles.get("right_leg", 0), angles_dict["right_leg"], tolerances.get("right_leg", tolerances["default"]))) / 2
             torso_score = self._score_angle(angles.get("torso_lean", 0), angles_dict["torso_lean"], tolerances.get("torso_lean", tolerances["default"]))
             lift_score = 100 if lifted else 0
-            return (leg_score + torso_score + lift_score) / 3
+            return (leg_score + torso_score + lift_score) // 3
         return 0
 
     def _score_angle(self, actual, target, tolerance):
@@ -144,6 +144,61 @@ class PoseTemplates:
                 feedback.append(":) Your heels are lifted high")
 
         return "\n".join(feedback)
+
+
+    def get_pose_score(self, angles, pose_index):
+        template = self.templates[pose_index]
+
+        check = template["special_check"]
+
+        def binary(cond):
+            return 1 if cond else 0
+
+        if check in ("flamingo_left", "flamingo_right"):
+            lifted = "left" if "left" in check else "right"
+            other = "right" if lifted == "left" else "left"
+
+            # criteria: lifted leg higher than standing leg, and torso lean ≤ 20°
+            leg_ok = angles.get(f"{lifted}_ankle_y", 0) > angles.get(f"{other}_ankle_y", 0)
+            posture_ok = abs(angles.get("torso_lean", 0)) <= 20
+
+            return binary(leg_ok and posture_ok)
+
+        elif check == "normal_standing_stance":
+            # criteria: torso lean ≤ 10°, feet separation < 0.1
+            posture_ok = abs(angles.get("torso_lean", 0)) <= 10
+            feet_sep = abs(angles.get("left_ankle_x", 0) - angles.get("right_ankle_x", 0))
+            feet_ok = feet_sep < 0.1
+
+            return binary(posture_ok and feet_ok)
+
+        elif check == "star_pose":
+            # criteria: arms near shoulder height (±45° from 90°) and feet spread ≥ 0.1
+            left_arm_ok = abs(angles.get("left_shoulder", 0) - 90) <= 45
+            right_arm_ok = abs(angles.get("right_shoulder", 0) - 90) <= 45
+            feet_sep = abs(angles.get("left_ankle_x", 0) - angles.get("right_ankle_x", 0))
+            feet_ok = feet_sep >= 0.1
+
+            return binary(left_arm_ok and right_arm_ok and feet_ok)
+
+        elif check == "tandem_stance":
+            # criteria: torso lean ≤ 10°, feet alignment < 0.05
+            posture_ok = abs(angles.get("torso_lean", 0)) <= 10
+            feet_sep = abs(angles.get("left_ankle_x", 0) - angles.get("right_ankle_x", 0))
+            feet_ok = feet_sep < 0.05
+
+            return binary(posture_ok and feet_ok)
+
+        elif check == "heel_raise":
+            # criteria: torso lean ≤ 15°, both heels lifted > 0.02 above toes
+            posture_ok = abs(angles.get("torso_lean", 0)) <= 15
+            left_lift = angles.get("left_toe_y", 1) - angles.get("left_heel_y", 1) > 0.02
+            right_lift = angles.get("right_toe_y", 1) - angles.get("right_heel_y", 1) > 0.02
+
+            return binary(posture_ok and left_lift and right_lift)
+
+        # If we don’t recognize the check, consider it incorrect
+        return 0
 
     def get_pose_description(self, index):
         if 0 <= index < len(self.templates):

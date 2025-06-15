@@ -61,7 +61,7 @@ class BearAnimator:
         return surf
 
     def update(self, score):
-        new_state = "sleeping" if score >= 80 else "waking" if score >= 50 else "angry"
+        new_state = "sleeping" if score >= 1 else "waking" if score >= 0.5 else "angry"
         if new_state == "waking" and self.prev_state != "waking":
             # init pupil from waking image
             base_x = int(self.base_x_frac * self.width)
