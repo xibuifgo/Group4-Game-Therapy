@@ -11,10 +11,11 @@ else:
 class PoseScorer:
     def __init__(self):
         self.history_length = 30
-        self.good_lim = 17
-        self.moderate_lim = 20
+        self.good_lim = 17.5
+        self.moderate_lim = 19
     
     def get_max_acceleration(self):
+
         try:
             ax_vals = sensor_data.vals["AcX"][-self.history_length:]
             ay_vals = sensor_data.vals["AcY"][-self.history_length:]
@@ -27,7 +28,7 @@ class PoseScorer:
 
 
 
-    def sensor_score(self):
+    def sensor_score(self):     
         max_accel = self.get_max_acceleration()
 
         if (max_accel <= self.good_lim):

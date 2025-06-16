@@ -12,7 +12,7 @@ if USE_ELECTRONICS:
 else:
     import data_temp as sensor_data
 
-DEV_MODE = True
+DEV_MODE = False
 
 
 # Try to import pose detection - fallback to mock data if not available
@@ -478,11 +478,11 @@ class PoseGame:
             if self.elapsed is None:                 # run it once
                 self.elapsed = time.time()
 
-                # queue the words (no 'interrupt' parameter needed)
-                self.speak_text("Three")             # t = 0 s
-                self.speak_text("Two")   # t = 1 s
-                self.speak_text("One")   # t = 2 s
-                self.speak_text("Pose!")  # t = 3 s
+                # schedule each countdown word at the right second
+                self.speak_text("Three", delay=0.0)
+                self.speak_text("Two",   delay=1.0)
+                self.speak_text("One",   delay=2.0)
+                self.speak_text("Pose!", delay=3.0)            
 
             # when Pose! has been visible for a further second …
             if time.time() - self.elapsed >= 4.0:    # 3-s countdown + 1-s hold
@@ -613,7 +613,7 @@ class PoseGame:
         setup_rect = pygame.Rect(setup_x, setup_y, panel_width, panel_height)
         self.window.blit(setup_img, setup_rect)
 
-        font_large = self.font
+        font_large = self.font_large
         instruction_color = (246, 203, 102)
 
         instructions = [
@@ -632,12 +632,16 @@ class PoseGame:
             self.draw_text_with_outline(self.window, line, font_large, x - font_large.size(line)[0] // 2, y, color)
 
         if not self.preview_spoken:
-            prompt = "Place your laptop on a leveled chair-height surface. " \
-                    "Stand two meters away from it. " \
-                    "Ensure your room is well lit and your full body is visible. " \
-                    "Raise both arms above your shoulders to begin!"
-            self.speak_text(prompt)
-            self.preview_spoken = True
+            # stop any leftover TTS (e.g. from imu_setup)
+            self.stop_speech()
+
+            # break the prompt into four lines, each delayed by ~3s 
+            self.speak_text("Place your laptop on a leveled chair-height surface.",    delay=0.0)
+            self.speak_text("Stand two meters away from it.",                          delay=3.0)
+            self.speak_text("Ensure your room is well lit and your full body is visible.", delay=6.0)
+            self.speak_text("Raise both arms above your shoulders to begin!",         delay=9.0)
+
+            self.preview_spoken = True        
 
         # Draw circle if arms are raised
         if self.preview_raise_start_time:
