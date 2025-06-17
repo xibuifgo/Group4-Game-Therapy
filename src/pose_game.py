@@ -1037,8 +1037,6 @@ class PoseGame:
                 if event.type == pygame.MOUSEBUTTONDOWN and restart_button.collidepoint(mouse_pos):
                     self.start_game()
 
-
-
     def display(self):
         """Main display method"""
         self.update()
