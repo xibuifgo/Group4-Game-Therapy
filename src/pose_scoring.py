@@ -11,8 +11,8 @@ else:
 class PoseScorer:
     def __init__(self):
         self.history_length = 30
-        self.good_lim = 17.5
-        self.moderate_lim = 19
+        self.good_lim = 17.05
+        self.moderate_lim = 17.50
     
     def get_max_acceleration(self):
 

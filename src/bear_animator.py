@@ -13,7 +13,7 @@ class BearAnimator:
         self.base_x_frac = 290 / 800
         self.base_y_frac = 260 / 600
         self.back_dx_frac = 55 / 800   # back_offset_x
-        self.back_dy_frac = -20 / 600   # back_offset_y
+        self.back_dy_frac = -22 / 600   # back_offset_y
 
         # Waking relative offsets w.r.t. bear image size
         self.eye_offset_x_frac = 130 / 400
@@ -55,6 +55,13 @@ class BearAnimator:
         self.pupil_x = 0
         self.pupil_y = 0
 
+        # Bear sound effects
+        self.sfx = {
+            "sleeping": pygame.mixer.Sound("assets/sfx/snore.mp3"), 
+            "waking": pygame.mixer.Sound("assets/sfx/blink.mp3"), 
+            "angry": pygame.mixer.Sound("assets/sfx/growl.mp3"), 
+        }
+
     def _placeholder(self, size, color):
         surf = pygame.Surface(size, pygame.SRCALPHA)
         surf.fill(color)
@@ -62,14 +69,16 @@ class BearAnimator:
 
     def update(self, score):
         new_state = "sleeping" if score >= 1 else "waking" if score >= 0.5 else "angry"
+
         if new_state == "waking" and self.prev_state != "waking":
-            # init pupil from waking image
             base_x = int(self.base_x_frac * self.width)
             base_y = int(self.base_y_frac * self.height)
             self.pupil_x = base_x + int(self.eye_offset_x_frac * 400)
             self.pupil_y = base_y + int(self.eye_offset_y_frac * 300)
-        self.state = new_state
+
+        self.set_state(new_state)  # <-- now it triggers sounds properly
         self.prev_state = new_state
+
 
     def draw(self, surface, center_pos=None):
         if center_pos is None:
@@ -77,10 +86,13 @@ class BearAnimator:
 
         if self.state == "sleeping":
             self._draw_sleep(surface, center_pos)
+            self.sfx["sleeping"].play()
         elif self.state == "waking":
             self._draw_wake(surface, center_pos)
+            self.sfx["waking"].play()
         else:
             self._draw_angry(surface, center_pos)
+            self.sfx["angry"].play()
 
 
     def _draw_sleep(self, surface, center_pos):
@@ -139,3 +151,15 @@ class BearAnimator:
 
         shake = 5 if ((pygame.time.get_ticks() // 100) % 2) == 0 else -5
         surface.blit(self.angry_img, (x + shake, y))
+
+    def set_state(self, state):
+        if state != self.state:  # Only act if state actually changes
+            self.state = state
+
+            # Stop all sounds first (prevent overlap)
+            for sound in self.sfx.values():
+                sound.stop()
+
+            # Play the sound for the new state
+            if state in self.sfx:
+                self.sfx[state].play()
